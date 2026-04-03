@@ -2,31 +2,28 @@
 
 import React, { useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
+// 1. Correct the casing in the imports
 import { 
   Activity, 
   LayoutDashboard, 
   LineChart, 
-  Github, 
-  Linkedin, 
   UserCircle 
 } from 'lucide-react';
 import { LimelightNav, NavItem } from "@/components/ui/limelight-nav";
 import SkyToggle from "@/components/ui/sky-toggle";
 
+const allNavItems = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Resume', href: '/resume', icon: LineChart },
+  { name: 'LinkedIn', href: '/LinkedIn', icon: LayoutDashboard }, 
+  { name: 'Github', href: '/github', icon: LayoutDashboard },
+  { name: 'Portfolio', href: '/portfolio', icon: UserCircle }
+];
+
 const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
 
-  // 1. Defined all items for the specific pages of your project
-  const allNavItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Resume', href: '/resume', icon: LineChart },
-    { name: 'LinkedIn', href: '/linkedin', icon: Linkedin },
-    { name: 'Github', href: '/github', icon: Github },
-    { name: 'Portfolio', href: '/portfolio', icon: UserCircle }
-  ];
-
-  // 2. Map items directly for the Limelight component
   const navItemsForLimelight: NavItem[] = useMemo(() => {
     return allNavItems.map(item => ({
       id: item.href,
@@ -36,7 +33,6 @@ const Navbar = () => {
     }));
   }, [router]);
 
-  // 3. Track which page is currently active for the "glow" effect
   const activeIndex = useMemo(() => {
     const index = navItemsForLimelight.findIndex(item => item.id === pathname);
     return index !== -1 ? index : 0;
@@ -57,7 +53,7 @@ const Navbar = () => {
             </div>
             <div className="flex flex-col">
               <span className="text-lg font-black tracking-tighter uppercase italic leading-none text-foreground">
-                Phronex <span className="text-indigo-600 dark:text-indigo-400">ID</span>
+                Axiom.io <span className="text-indigo-600 dark:text-indigo-400">ID</span>
               </span>
               <span className="text-[9px] text-indigo-600 font-bold tracking-[0.3em] uppercase mt-1">
                 Audit Engine v1.0
@@ -65,7 +61,7 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* CENTER: Limelight Navigation (The Glowy Bar) */}
+          {/* CENTER: Limelight Navigation */}
           <div className="hidden xl:flex flex-1 justify-center px-4">
             <LimelightNav 
               items={navItemsForLimelight}
@@ -83,7 +79,6 @@ const Navbar = () => {
               <SkyToggle />
             </div>
 
-            {/* Profile Avatar Placeholder (Replaces Logout) */}
             <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/20 cursor-pointer transition-all">
               <UserCircle size={20} />
             </div>

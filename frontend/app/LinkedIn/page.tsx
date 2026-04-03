@@ -65,9 +65,9 @@ export default function LinkedInAudit() {
                 <h2 className="font-bold uppercase tracking-tighter">AI Reality Check</h2>
               </div>
               <ul className="space-y-4 text-sm leading-relaxed">
-                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your "Senior" titles at personal projects are hurting your credibility with real recruiters.</li>
+                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your &quot;Senior&quot; titles at personal projects are hurting your credibility with real recruiters.</li>
                 <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> 85% of your skill endorsements are from peers, not industry seniors. Value is low.</li>
-                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your profile summary is generic AI-generated fluff. It lacks human "impact" metrics.</li>
+                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your profile summary is generic AI-generated fluff. It lacks human &quot;impact&quot; metrics.</li>
               </ul>
             </div>
 
@@ -78,11 +78,11 @@ export default function LinkedInAudit() {
               <div className="space-y-3">
                 <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700 text-xs text-zinc-400">
                   <strong className="text-zinc-100 block mb-1">Immediate Fix</strong>
-                  Update headline to include "FastAPI" and "Next.js" explicitly.
+                  Update headline to include &quot;FastAPI&quot; and &quot;Next.js&quot; explicitly.
                 </div>
                 <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700 text-xs text-zinc-400">
                   <strong className="text-zinc-100 block mb-1">Skill Gap</strong>
-                  Acquire AWS Cloud Practitioner to back up your "Cloud" claims.
+                  Acquire AWS Cloud Practitioner to back up your &quot;Cloud&quot; claims.
                 </div>
               </div>
             </div>

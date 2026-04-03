@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useLayoutEffect, cloneElement, useEffect } from 'react';
 
-const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+const cn = (...classes: (string | undefined | null | boolean)[]) => classes.filter(Boolean).join(' ');
 
 export type NavItem = {
   id: string | number;
@@ -75,11 +75,13 @@ export const LimelightNav = ({
           aria-label={label}
         >
           {/* Icon Rendering */}
-          {cloneElement(icon as React.ReactElement, {
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {cloneElement(icon as React.ReactElement<any>, {
             className: cn(
               "transition-all duration-300",
               activeIndex === index ? "opacity-100 scale-110 text-indigo-400" : "opacity-30 scale-100 text-slate-400",
-              (icon as React.ReactElement).props.className,
+              /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+              (icon as any).props?.className,
               iconClassName
             ),
           })}
