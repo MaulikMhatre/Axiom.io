@@ -22,7 +22,7 @@ export default function LinkedInAudit() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Column 1: Summary & Score */}
           <div className="lg:col-span-2 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -49,11 +49,11 @@ export default function LinkedInAudit() {
 
             {/* Graphs Placeholder */}
             <div className="bg-white/5 border border-white/10 backdrop-blur-md p-8 rounded-3xl min-h-[300px] flex items-center justify-center relative overflow-hidden">
-                <BarChart3 className="absolute opacity-5 text-zinc-100" size={200} />
-                <div className="text-center z-10">
-                    <p className="text-zinc-500 font-mono italic">Visualize: Career Momentum & Skill Density Graphs</p>
-                    <p className="text-xs text-zinc-600 mt-2">[Integration: Recharts RadarChart & AreaChart]</p>
-                </div>
+              <BarChart3 className="absolute opacity-5 text-zinc-100" size={200} />
+              <div className="text-center z-10">
+                <p className="text-zinc-500 font-mono italic">Visualize: Career Momentum & Skill Density Graphs</p>
+                <p className="text-xs text-zinc-600 mt-2">[Integration: Recharts RadarChart & AreaChart]</p>
+              </div>
             </div>
           </div>
 
@@ -65,9 +65,9 @@ export default function LinkedInAudit() {
                 <h2 className="font-bold uppercase tracking-tighter">AI Reality Check</h2>
               </div>
               <ul className="space-y-4 text-sm leading-relaxed">
-                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your "Senior" titles at personal projects are hurting your credibility with real recruiters.</li>
+                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your &quot;Senior&quot; titles at personal projects are hurting your credibility with real recruiters.</li>
                 <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> 85% of your skill endorsements are from peers, not industry seniors. Value is low.</li>
-                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your profile summary is generic AI-generated fluff. It lacks human "impact" metrics.</li>
+                <li className="text-zinc-300"><span className="text-violet-400 font-bold">●</span> Your profile summary is generic AI-generated fluff. It lacks human &quot;impact&quot; metrics.</li>
               </ul>
             </div>
 
@@ -78,11 +78,11 @@ export default function LinkedInAudit() {
               <div className="space-y-3">
                 <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700 text-xs text-zinc-400">
                   <strong className="text-zinc-100 block mb-1">Immediate Fix</strong>
-                  Update headline to include "FastAPI" and "Next.js" explicitly.
+                  Update headline to include &quot;FastAPI&quot; and &quot;Next.js&quot; explicitly.
                 </div>
                 <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700 text-xs text-zinc-400">
                   <strong className="text-zinc-100 block mb-1">Skill Gap</strong>
-                  Acquire AWS Cloud Practitioner to back up your "Cloud" claims.
+                  Acquire AWS Cloud Practitioner to back up your &quot;Cloud&quot; claims.
                 </div>
               </div>
             </div>

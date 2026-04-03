@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+gitpython
+langchain
+langchain-openai
+langchain-groq
+langchain-google-genai
+langchain-community
+langchain-core
+pydantic
+python-dotenv
+radon
+requests
+PyPDF2
+python-multipart
