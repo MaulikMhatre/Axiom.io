@@ -137,7 +137,7 @@ export default function ResumeAnalysis() {
                 </li>
                 <li className="text-zinc-300 flex items-start gap-3">
                     <span className="text-red-500 font-bold mt-1">→</span>
-                    <span>'AetherLink' is described as an "Operating System." Your GitHub code shows a terminal wrapper. Fix the discrepancy.</span>
+                    <span>&apos;AetherLink&apos; is described as an &quot;Operating System.&quot; Your GitHub code shows a terminal wrapper. Fix the discrepancy.</span>
                 </li>
                 <li className="text-zinc-300 flex items-start gap-3">
                     <span className="text-red-500 font-bold mt-1">→</span>
@@ -156,7 +156,7 @@ export default function ResumeAnalysis() {
                 </div>
                 <div className="p-4 bg-zinc-800/40 rounded-xl border border-zinc-700 text-xs text-zinc-400">
                   <strong className="text-violet-300 block mb-1.5">Verification Gap</strong>
-                  The "Expert in C++" claim is unverified. Post a complex C++ project to GitHub to increase this score.
+                  The &quot;Expert in C++&quot; claim is unverified. Post a complex C++ project to GitHub to increase this score.
                 </div>
               </div>
             </div>
