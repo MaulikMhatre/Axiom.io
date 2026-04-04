@@ -25,7 +25,29 @@ from radon.raw import analyze as raw_analyze
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from passlib.context import CryptContext
+from fastapi import Depends
 
+# --- DATABASE CONFIG ---
+SQLALCHEMY_DATABASE_URL = "sqlite:///./axiom_users.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+app = FastAPI(title="RepoLens Pro", version="2.0.2")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"], # Your Next.js dev server
+    allow_credentials=True,
+    allow_methods=["*"], # Allows POST, GET, OPTIONS, etc.
+    allow_headers=["*"], # Allows Content-Type, Authorization, etc.
+)
+
+# --- SECURITY ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # --- Configuration & Logging ---
 load_dotenv()
 logging.basicConfig(
@@ -69,7 +91,34 @@ class RepoResponse(BaseModel):
     githubStats: Dict[str, Any]
     fileTree: Dict[str, Any]
     rawStats: Dict[str, Any]
+# --- DATABASE MODELS ---
+class DBUser(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
 
+# Create the .db file and tables
+Base.metadata.create_all(bind=engine)
+
+# --- DB DEPENDENCY ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- SCHEMAS ---
+class UserRegister(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
 # --- Core Logic Services ---
 class AnalysisService:
     @staticmethod
@@ -151,6 +200,44 @@ async def parse_linkedin(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"LinkedIn Parsing Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to audit LinkedIn PDF")
+    
+@router.post("/register")
+async def register(user: UserRegister, db: Session = Depends(get_db)):
+    # Check if user already exists by email
+    existing_user = db.query(DBUser).filter(DBUser.email == user.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered in Axiom Archive.")
+    
+    # Hash the secret key (password)
+    hashed_pass = pwd_context.hash(user.password)
+    
+    new_user = DBUser(
+        username=user.username,
+        email=user.email,
+        hashed_password=hashed_pass
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return {"status": "identity_initialized", "user_id": new_user.id}
+
+@router.post("/login")
+async def login(user: UserLogin, db: Session = Depends(get_db)):
+    # Normalize email to lowercase and strip whitespace
+    clean_email = user.email.lower().strip()
+    db_user = db.query(DBUser).filter(DBUser.email == clean_email).first()
+    
+    if not db_user:
+        logger.warning(f"Login failed: {clean_email} not found.")
+        raise HTTPException(status_code=401, detail="Identity not found.")
+    
+    return {
+        "status": "success",
+        "username": db_user.username,
+        "message": "Neural link established. Welcome to Axiom."
+    }
 
 @router.get("/github/{username}")
 async def fetch_github_profile(username: str):
