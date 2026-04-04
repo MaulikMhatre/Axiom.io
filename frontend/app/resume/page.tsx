@@ -17,12 +17,23 @@ export default function ResumeAnalysis() {
 
   useEffect(() => {
     setMounted(true);
+    const email = localStorage.getItem('user_email');
     const stored = localStorage.getItem('user_resume_data');
+    
     if (stored) {
-      try {
-        const raw = JSON.parse(stored);
-        setResumeData(raw);
-      } catch (e) { console.error("Cache corrupted."); }
+      try { setResumeData(JSON.parse(stored)); } catch (e) { console.error("Cache corrupted."); }
+    }
+
+    if (email) {
+      fetch(`http://localhost:8000/api/me?email=${email}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.resume && Object.keys(data.resume).length > 0) {
+              setResumeData(data.resume);
+              localStorage.setItem('user_resume_data', JSON.stringify(data.resume));
+            }
+        })
+        .catch(err => console.error("Identity sync failure.", err));
     }
   }, []);
 
@@ -45,15 +56,29 @@ export default function ResumeAnalysis() {
 
   if (!mounted) return null;
 
-  const eliteSkills = (Array.isArray(resumeData?.skills) ? resumeData.skills : [])
+  const rawSkills = resumeData?.skills_matrix 
+    ? resumeData.skills_matrix.map((s: any) => ({ name: s.skill, level: s.signal_score, years: s.years_used }))
+    : (Array.isArray(resumeData?.skills) ? resumeData.skills : []);
+
+  const eliteSkills = rawSkills
     .filter((s: any) => (Number(s.level) || 0) >= 80).slice(0, 6);
 
-  const radarData = resumeData?.skillDensity ? 
-    Object.entries(resumeData.skillDensity).map(([subject, value]: any) => ({
-      subject, A: Number(value) || 50, fullMark: 100
-    })) : [];
+  // Derive skill density from skills_matrix if available
+  const radarData = resumeData?.skills_matrix 
+    ? Object.entries(resumeData.skills_matrix.reduce((acc: any, s: any) => {
+        acc[s.category] = Math.max(acc[s.category] || 0, s.signal_score);
+        return acc;
+    }, {})).map(([subject, value]: any) => ({
+      subject, A: value, fullMark: 100
+    }))
+    : (resumeData?.skillDensity ? 
+        Object.entries(resumeData.skillDensity).map(([subject, value]: any) => ({
+          subject, A: Number(value) || 50, fullMark: 100
+        })) : []);
 
-  const projects = Array.isArray(resumeData?.projectImpacts) ? resumeData.projectImpacts : [];
+  const projects = resumeData?.top_3_projects
+    ? resumeData.top_3_projects.map((p: any) => ({ name: p.name, score: 92, details: p.one_line_impact, stack: p.stack }))
+    : (Array.isArray(resumeData?.projectImpacts) ? resumeData.projectImpacts : []);
 
   return (
     <div className="min-h-screen bg-white dark:bg-background text-foreground p-8 md:p-16 pt-40 font-sans relative overflow-x-hidden selection:bg-violet-500/30">
@@ -69,13 +94,29 @@ export default function ResumeAnalysis() {
         {/* --- Header --- */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-200 dark:border-zinc-900 pb-12 gap-8">
           <div className="space-y-4">
-            <h1 className="text-7xl font-black text-foreground tracking-tighter uppercase italic text-foreground leading-none">
-              Neural <span className="text-violet-500">Resume</span> Audit
+            <h1 className={`${resumeData?.student_name ? 'text-4xl md:text-6xl' : 'text-7xl'} font-black text-foreground tracking-tighter uppercase italic leading-none transition-all duration-700`}>
+              {resumeData?.student_name ? 
+                <span className="flex flex-col">
+                  <span className="text-violet-500">{resumeData.student_name}</span>
+                  <span className="text-2xl mt-2 text-zinc-400 not-italic tracking-[0.3em]">Integrity Audit</span>
+                </span> 
+                : <span>Neural <span className="text-violet-500">Resume</span> Audit</span>
+              }
             </h1>
-            <div className="flex items-center gap-6">
-              <span className="px-4 py-1 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-base font-black uppercase tracking-widest rounded-md">
-                {resumeData?.devType || "Core Systems Architect"}
-              </span>
+            <div className="flex flex-wrap items-center gap-6">
+              {resumeData?.devType && (
+                <span className="px-4 py-1 bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-base font-black uppercase tracking-widest rounded-md">
+                  {resumeData.devType}
+                </span>
+              )}
+              {resumeData?.college && (
+                <div className="flex flex-col">
+                  <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Academic Node</span>
+                  <span className="text-zinc-900 dark:text-zinc-100 text-base font-bold uppercase tracking-widest">
+                    {resumeData.major} @ {resumeData.college}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           
@@ -97,10 +138,14 @@ export default function ResumeAnalysis() {
               {/* ATS SCORE */}
               <div className="bg-zinc-100 dark:bg-zinc-900/20 border border-border shadow-sm p-10 rounded-[2.5rem] relative group overflow-hidden">
                 <BrainCircuit className="absolute top-6 right-6 text-violet-500 opacity-20" size={32} />
-                <span className="text-base font-black text-zinc-800 dark:text-zinc-300 uppercase tracking-[0.4em]">Audit Integrity</span>
+                <span className="text-base font-black text-zinc-800 dark:text-zinc-300 uppercase tracking-[0.4em]">ATS Score</span>
                 <div className="text-8xl font-black text-foreground mt-4 italic tracking-tighter text-foreground leading-none">
-                  {Number(resumeData?.atsScore) || '00'}
+                  {Number(resumeData?.atsScore || resumeData?.ats_score || 0) || '00'}
                   <span className="text-3xl text-zinc-900 dark:text-zinc-300 not-italic ml-2">/100</span>
+                </div>
+                <div className="mt-6 flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">Neural ID Sync Active</span>
                 </div>
               </div>
 
@@ -113,7 +158,10 @@ export default function ResumeAnalysis() {
                   {eliteSkills.map((skill: any, i: number) => (
                     <div key={i} className="space-y-3">
                         <div className="flex justify-between text-base font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-widest">
-                            <span>{skill.name}</span>
+                            <span>
+                              {skill.name} 
+                              {skill.years && <span className="ml-3 text-[10px] text-violet-500/60 font-black">[{skill.years}Y]</span>}
+                            </span>
                             <span className="text-violet-600 dark:text-violet-400 font-mono">{skill.level}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-950 rounded-full overflow-hidden border border-border shadow-sm shadow-inner">
@@ -151,9 +199,18 @@ export default function ResumeAnalysis() {
                                             <path className="text-violet-500 stroke-current group-hover:shadow-[0_0_15px_rgba(139,92,246,1)] transition-all" strokeWidth="1.5" strokeDasharray={`${Number(proj.score) || 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" />
                                         </svg>
                                     </div>
-                                    <div className="flex-1 min-w-0 space-y-1">
-                                        <h4 className="text-[15px] font-black text-foreground uppercase truncate group-hover:text-violet-600 dark:text-violet-400 transition-colors tracking-tight leading-none">{proj.name}</h4>
-                                        <p className="text-base font-mono font-extrabold text-zinc-800 dark:text-zinc-300 uppercase tracking-[0.2em] mt-1 italic">Impact: {Number(proj.score || 0)}%</p>
+                                    <div className="flex-1 min-w-0 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <h4 className="text-[15px] font-black text-foreground uppercase truncate group-hover:text-violet-600 dark:text-violet-400 transition-colors tracking-tight leading-none">{proj.name}</h4>
+                                          <div className="flex gap-1">
+                                            {proj.stack?.slice(0, 3).map((st: string, idx: number) => (
+                                              <span key={idx} className="text-[8px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 text-violet-500 rounded font-black italic">{st}</span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <p className="text-base font-mono font-extrabold text-zinc-800 dark:text-zinc-300 uppercase tracking-[0.2em] mt-1 italic">
+                                          {proj.details || `Impact: ${Number(proj.score || 0)}%`}
+                                        </p>
                                     </div>
                                 </div>
                             ))}

@@ -15,27 +15,40 @@ export default function PortfolioPage() {
 
     useEffect(() => {
         setMounted(true);
-        if (typeof window !== 'undefined') {
-            const gitSync = localStorage.getItem('user_profile');
-            const resumeAi = localStorage.getItem('user_resume_data');
-            const regForm = localStorage.getItem('user_registration');
+        const fetchData = async () => {
+            const userEmail = localStorage.getItem('user_email');
+            if (!userEmail) return;
 
-            const gitData = gitSync ? JSON.parse(gitSync) : {};
-            const resumeData = resumeAi ? JSON.parse(resumeAi) : {};
-            const regData = regForm ? JSON.parse(regForm) : {};
+            try {
+                const response = await fetch(`http://localhost:8000/api/me?email=${userEmail}`);
+                const dbData = await response.json();
 
-            setData({
-                ...gitData,
-                displayName: resumeData.name || regData.name || gitData.name || "Axiom User",
-                displayCollege: regData.college || "Academic Institution",
-                displayMajor: regData.major || resumeData.devType || "Core Engineering",
-                skills: (resumeData.skills || resumeData.extractedSkills || gitData.topLanguages || []).slice(0, 6),
-                certifications: resumeData.certifications || resumeData.certs || [],
-                milestones: (resumeData.majorMilestones || resumeData.milestones || resumeData.achievements || []).slice(0, 5),
-                allProjects: [...(gitData.topProjects || [])].slice(0, 6),
-                trustScore: resumeData.atsScore || "92"
-            });
-        }
+                const gitData = dbData.github || {};
+                const resumeData = dbData.resume || {};
+                const legacy = dbData.legacy || {};
+                
+                // Unified Data Object
+                setData({
+                    ...gitData,
+                    displayName: resumeData.student_name || gitData.name || "Axiom User",
+                    displayCollege: resumeData.college || "Academic Institution",
+                    displayMajor: resumeData.major || resumeData.devType || "Core Engineering",
+                    skills: resumeData.skills_matrix 
+                        ? resumeData.skills_matrix.map((s: any) => ({ name: s.skill, level: s.signal_score }))
+                        : (resumeData.skills || gitData.topLanguages || []).slice(0, 6),
+                    certifications: resumeData.certifications || legacy.certifications || [],
+                    milestones: (resumeData.majorMilestones || resumeData.achievements || legacy.achievements || []).slice(0, 5),
+                    allProjects: (resumeData.top_3_projects && resumeData.top_3_projects.length > 0)
+                        ? resumeData.top_3_projects.map((p: any) => ({ name: p.name, description: p.one_line_impact, language: p.stack?.[0] || "ASM_CORE" }))
+                        : (gitData.topProjects || []).slice(0, 6),
+                    trustScore: resumeData.atsScore || "92"
+                });
+            } catch (err) {
+                console.error("Portfolio synchronization failed:", err);
+            }
+        };
+
+        fetchData();
     }, []);
 
     if (!mounted || !data) return <div className="bg-white dark:bg-background h-screen" />;

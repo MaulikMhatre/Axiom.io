@@ -53,12 +53,26 @@ export default function DashboardPage() {
 
                 // --- 2. COMPOSE SKILL DENSITY FOR RADAR ---
                 // E.g. { "Backend": 90, "Frontend": 70 } -> [{ subject: 'Backend', A: 90, fullMark: 100 }]
-                const skillDensityRaw = resumeData.skillDensity || { "Logic": 50, "Code": 50, "Design": 50 };
-                const radarData = Object.keys(skillDensityRaw).map(key => ({
-                    subject: key,
-                    A: skillDensityRaw[key],
-                    fullMark: 100
-                }));
+                const radarData = resumeData.skills_matrix 
+                    ? Object.entries(resumeData.skills_matrix.reduce((acc: any, s: any) => {
+                        acc[s.category] = Math.max(acc[s.category] || 0, s.signal_score);
+                        return acc;
+                    }, {})).map(([subject, value]: any) => ({
+                        subject, A: value, fullMark: 100
+                    }))
+                    : (Object.keys(resumeData.skillDensity || {}).length > 0
+                        ? Object.keys(resumeData.skillDensity).map(key => ({
+                            subject: key,
+                            A: resumeData.skillDensity[key],
+                            fullMark: 100
+                        }))
+                        : [
+                            { subject: 'Backend', A: 50, fullMark: 100 },
+                            { subject: 'Frontend', A: 50, fullMark: 100 },
+                            { subject: 'AI/ML', A: 50, fullMark: 100 },
+                            { subject: 'DevOps', A: 50, fullMark: 100 }
+                        ]
+                    );
 
                 // --- 3. NEURAL SCORE ENGINE ---
                 const extractScore = (val: any) => parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
@@ -186,7 +200,11 @@ export default function DashboardPage() {
                             <div className="w-full bg-zinc-100/50 dark:bg-white/5 rounded-xl p-5">
                                 <span className="text-base font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-300 block mb-4">Top Hard Skills</span>
                                 <div className="flex flex-wrap gap-3">
-                                    {(data.resume?.skills || []).slice(0, 5).map((s: any, i: number) => (
+                                    {/* Map new skills_matrix or fallback to old skills array */}
+                                    {((data.resume?.skills_matrix 
+                                        ? data.resume.skills_matrix.map((s: any) => ({ name: s.skill, level: s.signal_score }))
+                                        : (data.resume?.skills || []))
+                                      ).slice(0, 5).map((s: any, i: number) => (
                                         <span key={i} className="text-base font-extrabold px-4 py-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-200 rounded-md border border-indigo-500/30">
                                             {s.name} ({s.level})
                                         </span>
