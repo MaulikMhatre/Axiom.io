@@ -16,7 +16,7 @@ const colorMap = {
   orange: "bg-orange-500/20"
 };
 
-export const GlowCard = ({ children, className = '', glowColor = 'blue' }: GlowCardProps) => {
+export const GlowCard = ({ children, className='', glowColor = 'blue' }: GlowCardProps) => {
   return (
     <div className={`relative group rounded-[2.5rem] border bg-card border-border transition-all duration-500 overflow-hidden ${className}`}>
       

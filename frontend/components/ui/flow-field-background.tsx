@@ -218,7 +218,7 @@ export default function NeuralBackground({
   }, [color, trailOpacity, particleCount, speed, scale, interactive]);
 
   return (
-    <div ref={containerRef} className={cn("relative w-full h-full bg-black overflow-hidden", className)}>
+    <div ref={containerRef} className={cn("relative w-full h-full bg-background overflow-hidden", className)}>
       <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );

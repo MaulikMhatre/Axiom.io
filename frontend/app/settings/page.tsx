@@ -197,88 +197,88 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#09090b] selection:bg-indigo-500/30">
+        <div className="min-h-screen bg-white dark:bg-background selection:bg-indigo-500/30">
             <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pt-32 pb-20 px-8 text-foreground">
                 
-                <button onClick={() => router.back()} className="flex items-center text-slate-500 hover:text-indigo-400 mb-8 transition-colors group">
+                <button onClick={() => router.back()} className="flex items-center text-zinc-800 dark:text-zinc-300 hover:text-indigo-600 dark:text-indigo-400 mb-8 transition-colors group">
                     <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" /> Back
                 </button>
 
-                <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Identity Settings</h1>
-                <p className="text-slate-500 mb-10 font-light">Manage your connected accounts, academic profile, and portfolio.</p>
+                <h1 className="text-4xl font-black text-foreground dark:text-white mb-2 tracking-tight">Identity Settings</h1>
+                <p className="text-zinc-800 dark:text-zinc-300 mb-10 font-light">Manage your connected accounts, academic profile, and portfolio.</p>
 
                 <div className="space-y-6">
                     
                     {/* Top Row: AI Sync Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Resume Sync */}
-                        <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl transition-all hover:border-emerald-500/30 group">
+                        <div className="bg-zinc-100/50 dark:bg-white/5 border border-border backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl transition-all hover:border-emerald-500/30 group">
                             <div className="flex flex-col h-full">
                                 <div className="flex items-center space-x-4 mb-6">
-                                    <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform"><FileText className="w-6 h-6" /></div>
-                                    <div><h3 className="text-lg font-bold text-white">AI Resume Sync</h3><p className="text-xs text-slate-500">Auto-fill Profile & Skills.</p></div>
+                                    <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform"><FileText className="w-6 h-6" /></div>
+                                    <div><h3 className="text-lg font-extrabold text-foreground dark:text-white">AI Resume Sync</h3><p className="text-base text-zinc-800 dark:text-zinc-300">Auto-fill Profile & Skills.</p></div>
                                 </div>
-                                <label className={`mt-auto w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-4 py-3 rounded-xl font-bold flex items-center justify-center transition-all border border-emerald-500/20 cursor-pointer ${isUploadingResume ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <label className={`mt-auto w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-4 py-3 rounded-xl font-extrabold flex items-center justify-center transition-all border border-emerald-500/20 cursor-pointer ${isUploadingResume ? 'opacity-50 pointer-events-none' : ''}`}>
                                     {isUploadingResume ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UploadCloud className="w-4 h-4 mr-2" />}
                                     {isUploadingResume ? 'Parsing...' : 'Upload PDF'}
                                     <input type="file" accept="application/pdf" className="hidden" onChange={handleResumeUpload} />
                                 </label>
-                                {resumeMsg && <p className="mt-3 text-emerald-400 text-[10px] text-center font-medium uppercase tracking-wider animate-pulse">{resumeMsg}</p>}
+                                {resumeMsg && <p className="mt-3 text-emerald-600 dark:text-emerald-400 text-base text-center font-bold uppercase tracking-wider animate-pulse">{resumeMsg}</p>}
                             </div>
                         </div>
 
                         {/* LinkedIn Sync */}
-                        <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl transition-all hover:border-blue-500/30 group">
+                        <div className="bg-zinc-100/50 dark:bg-white/5 border border-border backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl transition-all hover:border-blue-500/30 group">
                             <div className="flex flex-col h-full">
                                 <div className="flex items-center space-x-4 mb-6">
-                                    <div className="p-4 bg-blue-500/10 rounded-2xl text-blue-400 border border-blue-500/20 group-hover:scale-110 transition-transform"><Linkedin className="w-6 h-6" /></div>
-                                    <div><h3 className="text-lg font-bold text-white">LinkedIn Audit</h3><p className="text-xs text-slate-500">Sync & Analyze Profile.</p></div>
+                                    <div className="p-4 bg-blue-500/10 rounded-2xl text-blue-600 dark:text-blue-400 border border-blue-500/20 group-hover:scale-110 transition-transform"><Linkedin className="w-6 h-6" /></div>
+                                    <div><h3 className="text-lg font-extrabold text-foreground dark:text-white">LinkedIn Audit</h3><p className="text-base text-zinc-800 dark:text-zinc-300">Sync & Analyze Profile.</p></div>
                                 </div>
-                                <label className={`mt-auto w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-4 py-3 rounded-xl font-bold flex items-center justify-center transition-all border border-blue-500/20 cursor-pointer ${isUploadingLinkedin ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <label className={`mt-auto w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-4 py-3 rounded-xl font-extrabold flex items-center justify-center transition-all border border-blue-500/20 cursor-pointer ${isUploadingLinkedin ? 'opacity-50 pointer-events-none' : ''}`}>
                                     {isUploadingLinkedin ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UploadCloud className="w-4 h-4 mr-2" />}
                                     {isUploadingLinkedin ? 'Syncing...' : 'Upload PDF'}
                                     <input type="file" accept="application/pdf" className="hidden" onChange={handleLinkedinUpload} />
                                 </label>
-                                {linkedinMsg && <p className="mt-3 text-blue-400 text-[10px] text-center font-medium uppercase tracking-wider animate-pulse">{linkedinMsg}</p>}
+                                {linkedinMsg && <p className="mt-3 text-blue-600 dark:text-blue-400 text-base text-center font-bold uppercase tracking-wider animate-pulse">{linkedinMsg}</p>}
                             </div>
                         </div>
                     </div>
 
                     {/* Personal Profile Section */}
-                    <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl">
+                    <div className="bg-zinc-100/50 dark:bg-white/5 border border-border backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl">
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex items-center space-x-4">
                                 <div className="p-4 bg-purple-500/10 rounded-2xl text-purple-400 border border-purple-500/20"><User className="w-6 h-6" /></div>
-                                <h3 className="text-xl font-bold text-white">Academic Profile</h3>
+                                <h3 className="text-xl font-extrabold text-foreground dark:text-white">Academic Profile</h3>
                             </div>
-                            <button onClick={handleProfileSave} disabled={isSavingProfile} className="bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 px-5 py-2.5 rounded-xl font-bold flex items-center transition-all border border-purple-500/20 shadow-lg shadow-purple-500/10">
+                            <button onClick={handleProfileSave} disabled={isSavingProfile} className="bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 px-5 py-2.5 rounded-xl font-extrabold flex items-center transition-all border border-purple-500/20 shadow-lg shadow-purple-500/10">
                                 {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Save Changes
                             </button>
                         </div>
                         
                         <div className="grid grid-cols-1 gap-6">
                             <div className="space-y-1">
-                                <label className="text-[10px] uppercase tracking-[0.2em] text-slate-500 ml-1 block font-bold">Full Identity Name</label>
-                                <input value={profileData.name} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })} className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-white focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all placeholder:text-slate-700" placeholder="Full Name" />
+                                <label className="text-base uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-300 ml-1 block font-extrabold">Full Identity Name</label>
+                                <input value={profileData.name} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })} className="w-full bg-background/40 border border-border shadow-sm rounded-xl px-4 py-3.5 text-foreground dark:text-white focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all placeholder:text-slate-700" placeholder="Full Name" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-[0.2em] text-slate-500 ml-1 block font-bold">Institution</label>
-                                    <input value={profileData.college} onChange={(e) => setProfileData({ ...profileData, college: e.target.value })} className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-white focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all" placeholder="University Name" />
+                                    <label className="text-base uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-300 ml-1 block font-extrabold">Institution</label>
+                                    <input value={profileData.college} onChange={(e) => setProfileData({ ...profileData, college: e.target.value })} className="w-full bg-background/40 border border-border shadow-sm rounded-xl px-4 py-3.5 text-foreground dark:text-white focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all" placeholder="University Name" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-[0.2em] text-slate-500 ml-1 block font-bold">Major</label>
-                                    <input value={profileData.major} onChange={(e) => setProfileData({ ...profileData, major: e.target.value })} className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-white focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all" placeholder="Course of Study" />
+                                    <label className="text-base uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-300 ml-1 block font-extrabold">Major</label>
+                                    <input value={profileData.major} onChange={(e) => setProfileData({ ...profileData, major: e.target.value })} className="w-full bg-background/40 border border-border shadow-sm rounded-xl px-4 py-3.5 text-foreground dark:text-white focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all" placeholder="Course of Study" />
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Manage Projects Section */}
-                    <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl">
+                    <div className="bg-zinc-100/50 dark:bg-white/5 border border-border backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl">
                         <div className="flex items-center space-x-4 mb-8">
                             <div className="p-4 bg-amber-500/10 rounded-2xl text-amber-400 border border-amber-500/20"><Briefcase className="w-6 h-6" /></div>
-                            <div><h3 className="text-xl font-bold text-white">Project Portfolio</h3><p className="text-sm text-slate-500">Edit or curate your showcased work.</p></div>
+                            <div><h3 className="text-xl font-extrabold text-foreground dark:text-white">Project Portfolio</h3><p className="text-base text-zinc-800 dark:text-zinc-300">Edit or curate your showcased work.</p></div>
                         </div>
 
                         <div className="space-y-4">
@@ -287,52 +287,52 @@ export default function SettingsPage() {
                                     {editingIndex === index ? (
                                         <div className="bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/30 animate-in fade-in zoom-in-95 duration-300">
                                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                                <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="bg-black/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none" placeholder="Project Name" />
-                                                <input value={editForm.language} onChange={(e) => setEditForm({ ...editForm, language: e.target.value })} className="bg-black/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-indigo-500 outline-none" placeholder="Tech Stack (e.g. React, Python)" />
+                                                <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="bg-black/60 border border-border rounded-xl px-4 py-2.5 text-base text-foreground dark:text-white focus:border-indigo-500 outline-none" placeholder="Project Name" />
+                                                <input value={editForm.language} onChange={(e) => setEditForm({ ...editForm, language: e.target.value })} className="bg-black/60 border border-border rounded-xl px-4 py-2.5 text-base text-foreground dark:text-white focus:border-indigo-500 outline-none" placeholder="Tech Stack (e.g. React, Python)" />
                                             </div>
-                                            <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white resize-none focus:border-indigo-500 outline-none mb-4" rows={3} placeholder="Project description..." />
+                                            <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="w-full bg-black/60 border border-border rounded-xl px-4 py-2.5 text-base text-foreground dark:text-white resize-none focus:border-indigo-500 outline-none mb-4" rows={3} placeholder="Project description..." />
                                             <div className="flex justify-end gap-3">
-                                                <button onClick={() => setEditingIndex(null)} className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-white/5 transition-colors"><X className="w-3 h-3 mr-1" /> Cancel</button>
-                                                <button onClick={saveProjectEdit} className="flex items-center text-xs font-bold text-white px-5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20"><Save className="w-3 h-3 mr-1" /> Update Project</button>
+                                                <button onClick={() => setEditingIndex(null)} className="flex items-center text-base font-extrabold text-slate-400 hover:text-foreground dark:text-white px-4 py-2 rounded-xl bg-zinc-100/50 dark:bg-white/5 transition-colors"><X className="w-3 h-3 mr-1" /> Cancel</button>
+                                                <button onClick={saveProjectEdit} className="flex items-center text-base font-extrabold text-foreground dark:text-white px-5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20"><Save className="w-3 h-3 mr-1" /> Update Project</button>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex justify-between items-center bg-black/30 p-5 rounded-2xl border border-white/5 group hover:border-indigo-500/30 transition-all hover:bg-black/50">
+                                        <div className="flex justify-between items-center bg-white/50 dark:bg-black/30 p-5 rounded-2xl border border-border shadow-sm group hover:border-indigo-500/30 transition-all hover:bg-background/50">
                                             <div>
-                                                <h4 className="font-bold text-white group-hover:text-indigo-400 transition-colors">{project.name}</h4>
-                                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 font-semibold">{project.language || 'General Project'}</p>
+                                                <h4 className="font-extrabold text-foreground dark:text-white group-hover:text-indigo-600 dark:text-indigo-400 transition-colors">{project.name}</h4>
+                                                <p className="text-base text-zinc-800 dark:text-zinc-300 uppercase tracking-widest mt-1 font-semibold">{project.language || 'General Project'}</p>
                                             </div>
                                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                                <button onClick={() => startEditing(index, project)} className="text-slate-400 hover:text-indigo-400 p-2.5 bg-white/5 hover:bg-indigo-500/10 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                                                <button onClick={() => startEditing(index, project)} className="text-slate-400 hover:text-indigo-600 dark:text-indigo-400 p-2.5 bg-zinc-100/50 dark:bg-white/5 hover:bg-indigo-500/10 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
                                                 <button onClick={() => deleteProject(index)} className="text-red-400 hover:text-red-300 p-2.5 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all border border-red-500/20"><Trash2 className="w-4 h-4" /></button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             )) : (
-                                <div className="text-center py-12 border-2 border-dashed border-white/5 rounded-3xl bg-black/20">
-                                    <p className="text-sm text-slate-600">No manual projects added to your portfolio.</p>
+                                <div className="text-center py-12 border-2 border-dashed border-white dark:border-black shadow-lg dark:shadow-none/5 dark:border-white/5 rounded-3xl bg-background/20">
+                                    <p className="text-base text-slate-600">No manual projects added to your portfolio.</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
                     {/* GitHub Integration Card */}
-                    <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl transition-all hover:border-indigo-500/20">
+                    <div className="bg-zinc-100/50 dark:bg-white/5 border border-border backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl transition-all hover:border-indigo-500/20">
                         <div className="flex items-center space-x-4 mb-8">
-                            <div className="p-4 bg-indigo-500/10 rounded-2xl text-indigo-400 border border-indigo-500/20"><Github className="w-6 h-6" /></div>
-                            <div><h3 className="text-xl font-bold text-white">GitHub Connection</h3><p className="text-sm text-slate-500">Sync repositories and contributions.</p></div>
+                            <div className="p-4 bg-indigo-500/10 rounded-2xl text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"><Github className="w-6 h-6" /></div>
+                            <div><h3 className="text-xl font-extrabold text-foreground dark:text-white">GitHub Connection</h3><p className="text-base text-zinc-800 dark:text-zinc-300">Sync repositories and contributions.</p></div>
                         </div>
                         <div className="flex gap-4">
                             <div className="relative flex-1 group">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 font-medium text-sm">github.com/</span>
-                                <input value={github} onChange={(e) => setGithub(e.target.value)} className="w-full bg-black/50 border border-white/5 rounded-xl pl-[5.5rem] pr-4 py-4 text-white focus:border-indigo-500 outline-none transition-all" placeholder="username" />
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-base">github.com/</span>
+                                <input value={github} onChange={(e) => setGithub(e.target.value)} className="w-full bg-background/50 border border-border shadow-sm rounded-xl pl-[5.5rem] pr-4 py-4 text-foreground dark:text-white focus:border-indigo-500 outline-none transition-all" placeholder="username" />
                             </div>
-                            <button onClick={syncIdentity} disabled={isSyncing} className="bg-indigo-500 hover:bg-indigo-600 px-10 rounded-xl font-black flex items-center text-white transition-all border border-indigo-400/20 shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50">
+                            <button onClick={syncIdentity} disabled={isSyncing} className="bg-indigo-500 hover:bg-indigo-600 px-10 rounded-xl font-black flex items-center text-foreground dark:text-white transition-all border border-indigo-400/20 shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50">
                                 {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><RefreshCw className="w-4 h-4 mr-2" /> Sync</>}
                             </button>
                         </div>
-                        {msg && <div className="mt-6 text-emerald-400 font-bold text-xs flex items-center bg-emerald-500/10 px-4 py-3 rounded-xl border border-emerald-500/20 w-fit animate-in slide-in-from-top-2"><CheckCircle className="w-4 h-4 mr-2" /> {msg}</div>}
+                        {msg && <div className="mt-6 text-emerald-600 dark:text-emerald-400 font-extrabold text-base flex items-center bg-emerald-500/10 px-4 py-3 rounded-xl border border-emerald-500/20 w-fit animate-in slide-in-from-top-2"><CheckCircle className="w-4 h-4 mr-2" /> {msg}</div>}
                     </div>
 
                 </div>

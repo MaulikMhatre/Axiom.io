@@ -79,7 +79,7 @@ export const LimelightNav = ({
           {cloneElement(icon as React.ReactElement<any>, {
             className: cn(
               "transition-all duration-300",
-              activeIndex === index ? "opacity-100 scale-110 text-indigo-400" : "opacity-30 scale-100 text-slate-400",
+              activeIndex === index ? "opacity-100 scale-110 text-indigo-600 dark:text-indigo-400 " : "opacity-50 dark:opacity-30 scale-100 text-slate-600 dark:text-slate-400",
               /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
               (icon as any).props?.className,
               iconClassName
@@ -90,7 +90,7 @@ export const LimelightNav = ({
           {label && (
             <span className={cn(
               "text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 whitespace-nowrap",
-              activeIndex === index ? "text-indigo-400 opacity-100" : "text-slate-500 opacity-40"
+              activeIndex === index ? "text-indigo-600 dark:text-indigo-400 opacity-100" : "text-slate-700 dark:text-zinc-500 opacity-60 dark:opacity-40"
             )}>
               {label}
             </span>

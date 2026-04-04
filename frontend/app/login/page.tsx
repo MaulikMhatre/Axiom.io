@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Sparkles, Lock, Mail, Hexagon, Cpu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import NeuralBackground from "@/components/ui/flow-field-background";
+import SkyToggle from "@/components/ui/sky-toggle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -45,8 +46,13 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-transparent font-sans">
       
+      {/* THEME TOGGLE FIXED TOP */}
+      <div className="fixed top-8 right-8 z-50 scale-90 opacity-80 hover:opacity-100 transition-opacity">
+        <SkyToggle />
+      </div>
+
       {/* BACKGROUND LAYER */}
-      <div className="fixed inset-0 -z-10 bg-black">
+      <div className="fixed inset-0 -z-10 bg-background">
         <NeuralBackground 
           color="#818cf8" 
           trailOpacity={0.15} 
@@ -59,17 +65,17 @@ export default function LoginPage() {
 
       <div className="relative z-10 w-full max-w-lg px-6">
         {/* --- BLENDED GLASS CARD --- */}
-        <div className="backdrop-blur-3xl bg-white/[0.03] border border-white/10 shadow-[0_0_100px_-20px_rgba(99,102,241,0.15)] rounded-[3rem] overflow-hidden p-10 md:p-16">
+        <div className="backdrop-blur-3xl bg-white/[0.03] border border-border shadow-[0_0_100px_-20px_rgba(99,102,241,0.15)] rounded-[3rem] overflow-hidden p-10 md:p-16">
           
           <div className="text-center mb-10 flex flex-col items-center">
             <div className="relative mb-6 group cursor-default">
-              <Hexagon className="w-16 h-16 text-indigo-500 fill-indigo-500/5 group-hover:rotate-6 transition-transform duration-500" strokeWidth={1.5} />
-              <Cpu className="absolute inset-0 m-auto w-8 h-8 text-indigo-400 animate-pulse" />
+              <Hexagon className="w-16 h-16 text-indigo-700 dark:text-indigo-500 fill-indigo-500/5 group-hover:rotate-6 transition-transform duration-500" strokeWidth={1.5} />
+              <Cpu className="absolute inset-0 m-auto w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-pulse" />
             </div>
-            <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-indigo-400 tracking-tighter mb-2 uppercase italic leading-none">
+            <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 dark:from-white via-indigo-100 to-indigo-400 tracking-tighter mb-2 uppercase italic leading-none">
               Axiom.io
             </h2>
-            <p className="text-indigo-500/60 text-[10px] font-black uppercase tracking-[0.4em] ml-1">
+            <p className="text-indigo-700 dark:text-indigo-500/60 text-base font-black uppercase tracking-[0.4em] ml-1">
               Digital Identity Audit
             </p>
           </div>
@@ -77,15 +83,15 @@ export default function LoginPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Email Field */}
             <div className="group">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1 group-focus-within:text-indigo-400 transition-colors">
+              <label className="block text-base font-black text-zinc-800 dark:text-zinc-300 uppercase tracking-[0.2em] mb-2 ml-1 group-focus-within:text-indigo-600 dark:text-indigo-400 transition-colors">
                 Identity Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-800 dark:text-zinc-300 group-focus-within:text-indigo-600 dark:text-indigo-400 transition-colors" size={18} />
                 <input
                   type="email"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  className="w-full bg-zinc-100/50 dark:bg-white/5 border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground dark:text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   placeholder="vivaan@axiom.io"
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -94,15 +100,15 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="group">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1 group-focus-within:text-indigo-400 transition-colors">
+              <label className="block text-base font-black text-zinc-800 dark:text-zinc-300 uppercase tracking-[0.2em] mb-2 ml-1 group-focus-within:text-indigo-600 dark:text-indigo-400 transition-colors">
                 Access Key
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-800 dark:text-zinc-300 group-focus-within:text-indigo-600 dark:text-indigo-400 transition-colors" size={18} />
                 <input
                   type="password"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  className="w-full bg-zinc-100/50 dark:bg-white/5 border border-border rounded-2xl py-4 pl-12 pr-4 text-foreground dark:text-white placeholder-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   placeholder="••••••••"
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -110,11 +116,11 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-xs font-bold text-red-500 text-center px-4 animate-pulse uppercase tracking-widest">{error}</p>
+              <p className="text-base font-extrabold text-red-500 text-center px-4 animate-pulse uppercase tracking-widest">{error}</p>
             )}
 
             <div className="text-right">
-              <a href="#" className="text-[10px] font-black text-slate-600 hover:text-indigo-400 transition-colors uppercase tracking-widest">
+              <a href="#" className="text-base font-black text-slate-600 hover:text-indigo-600 dark:text-indigo-400 transition-colors uppercase tracking-widest">
                 Recover Access?
               </a>
             </div>
@@ -122,7 +128,7 @@ export default function LoginPage() {
             {/* SUBMIT BUTTON */}
             <button
               type="submit"
-              className="group relative w-full py-4 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-[0.3em] overflow-hidden shadow-xl hover:bg-indigo-500 hover:text-white transition-all active:scale-95"
+              className="group relative w-full py-4 bg-white text-black rounded-2xl font-black text-base uppercase tracking-[0.3em] overflow-hidden shadow-xl hover:bg-indigo-500 hover:text-foreground dark:text-white transition-all active:scale-95"
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
                 Enter Interface <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -130,10 +136,10 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 pt-8 border-t border-white/5 text-center">
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+          <div className="mt-8 pt-8 border-t border-white dark:border-black shadow-lg dark:shadow-none/5 dark:border-white/5 text-center">
+            <p className="text-base text-zinc-800 dark:text-zinc-300 font-extrabold uppercase tracking-widest">
               UNAUTHORIZED?{' '}
-              <Link href="/register" className="text-white hover:text-indigo-400 transition-colors underline underline-offset-4 decoration-indigo-500/50">
+              <Link href="/register" className="text-foreground dark:text-white hover:text-indigo-600 dark:text-indigo-400 transition-colors underline underline-offset-4 decoration-indigo-500/50">
                 Initialize New ID
               </Link>
             </p>
@@ -143,7 +149,7 @@ export default function LoginPage() {
         {/* Verification Badge Footer */}
         <div className="mt-8 flex justify-center items-center gap-2 text-slate-700">
             <Sparkles size={14} />
-            <span className="text-[9px] font-black uppercase tracking-[0.3em]">Verified by Axiom Neural Link</span>
+            <span className="text-base font-black uppercase tracking-[0.3em]">Verified by Axiom Neural Link</span>
         </div>
       </div>
     </div>
