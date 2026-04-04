@@ -32,7 +32,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning // Added to prevent the theme-switch flicker error
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
+      
     >
       <body className="min-h-full flex flex-col">
         <StyledComponentsRegistry>

@@ -1,3 +1,4 @@
+
 import os
 import shutil
 import tempfile
@@ -25,8 +26,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
-
-
 # --- Configuration & Logging ---
 load_dotenv()
 logging.basicConfig(
@@ -35,12 +34,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger("RepoLens")
 
-# TECHNICAL FIX: Using the correct 2026 Preview string to avoid 404
-MODEL_NAME = "gemini-3-flash-preview" 
+MODEL_NAME = "gemini-2.5-flash" 
 
 class Config:
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# --- Constants & Helpers ---
+IGNORE_DIRS = {".git", "node_modules", "venv", "__pycache__", "dist", "build", ".next", ".vercel"}
+IGNORE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg", ".pyc", ".mp4", ".pdf", ".lock", ".json"}
+
+def get_github_headers() -> dict:
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return headers
 
 # --- Schemas ---
 class RepoRequest(BaseModel):
@@ -63,15 +72,12 @@ class RepoResponse(BaseModel):
 
 # --- Core Logic Services ---
 class AnalysisService:
-    IGNORE_DIRS = {".git", "node_modules", "venv", "__pycache__", "dist", "build", ".next", ".vercel"}
-    IGNORE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg", ".pyc", ".mp4", ".pdf", ".lock", ".json"}
-
     @staticmethod
     async def get_github_stats(url: str) -> dict:
-        headers = {"Authorization": f"token {Config.GITHUB_TOKEN}"} if Config.GITHUB_TOKEN else {}
+        headers = get_github_headers()
         parts = str(url).rstrip('/').split('/')
+        if len(parts) < 2: return {"stars": 0, "forks": 0, "open_issues": 0, "last_updated": "N/A"}
         repo_path = f"{parts[-2]}/{parts[-1]}"
-        
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 resp = await client.get(f"https://api.github.com/repos/{repo_path}", headers=headers)
@@ -90,9 +96,7 @@ class AnalysisService:
     def get_code_metrics(dir_path: Path) -> Dict[str, Any]:
         scores, mi_list = [], []
         loc, comments = 0, 0
-        
-        source_files = [p for p in dir_path.rglob("*.py") if not any(d in p.parts for d in AnalysisService.IGNORE_DIRS)]
-        
+        source_files = [p for p in dir_path.rglob("*.py") if not any(d in p.parts for d in IGNORE_DIRS)]
         for p in source_files:
             try:
                 code = p.read_text(encoding="utf-8", errors="ignore")
@@ -102,10 +106,8 @@ class AnalysisService:
                 mi_list.append(mi_visit(code, multi=True))
                 scores.extend([b.complexity for b in cc_visit(code)])
             except: continue
-
         avg_mi = int(statistics.mean(mi_list)) if mi_list else 75
         avg_cc = round(statistics.mean(scores), 2) if scores else 1.0
-        
         return {
             "maintainabilityIndex": avg_mi,
             "avgComplexity": avg_cc,
@@ -114,8 +116,42 @@ class AnalysisService:
             "fileCount": len(list(dir_path.rglob("*")))
         }
 
-# --- Router Definitions ---
+# --- Initialize App and Router ---
+app = FastAPI(title="RepoLens Pro", version="2.0.2")
 router = APIRouter(prefix="/api")
+
+# --- Endpoints ---
+
+@router.post("/upload-linkedin")
+async def parse_linkedin(file: UploadFile = File(...)):
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Must be a PDF file")
+    try:
+        pdf_reader = PyPDF2.PdfReader(file.file)
+        text = "".join([p.extract_text() for p in pdf_reader.pages])
+        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.2)
+        prompt = ChatPromptTemplate.from_template("""
+    SYSTEM ROLE:
+    You are an elite Tech Profile Auditor. Analyze the following LinkedIn PDF text and return a JSON object.
+    
+    EXPECTED JSON SCHEMA:
+    {{
+      "credibility_score": number (0-100),
+      "name": "string",
+      "headline": "string",
+      "verification_tags": ["string"],
+      "brutal_feedback": ["string"],
+      "roadmap": [{{ "title": "string", "description": "string" }}]
+    }}
+
+    LinkedIn Profile PDF Text: {text}
+    """)
+        chain = prompt | llm | JsonOutputParser()
+        return await chain.ainvoke({"text": text[:12000]})
+    except Exception as e:
+        logger.error(f"LinkedIn Parsing Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to audit LinkedIn PDF")
+
 @router.get("/github/{username}")
 async def fetch_github_profile(username: str):
     """Fetches developer DNA by isolating individual 'Hard Work' vs group noise."""
@@ -213,95 +249,69 @@ async def fetch_github_profile(username: str):
 @router.post("/analyze", response_model=RepoResponse)
 async def analyze_repo(request: RepoRequest):
     temp_dir = tempfile.mkdtemp()
-    url_str = str(request.url)
-    
     try:
-        # 1. Async Subprocess Cloning
-        process = await asyncio.create_subprocess_exec(
-            "git", "clone", "--depth", "1", url_str, temp_dir,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+        process = await asyncio.create_subprocess_exec("git", "clone", "--depth", "1", str(request.url), temp_dir)
         await asyncio.wait_for(process.communicate(), timeout=30.0)
-
         root = Path(temp_dir)
-        
-        # 2. Parallel Metrics
-        metrics_task = asyncio.to_thread(AnalysisService.get_code_metrics, root)
-        stats_task = AnalysisService.get_github_stats(request.url)
-        metrics, github_stats = await asyncio.gather(metrics_task, stats_task)
-
-        # 3. LLM Synthesis with Gemini 3 Flash Preview
+        metrics, github_stats = await asyncio.gather(asyncio.to_thread(AnalysisService.get_code_metrics, root), AnalysisService.get_github_stats(request.url))
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1)
         parser = JsonOutputParser()
-        
-        prompt = ChatPromptTemplate.from_template(
-            "Analyze this repository: {url}\nMetrics: {metrics}\nMode: {mode}\n"
-            "Return a JSON object for: projectSummary, techStack, aiGeneratedPercentage, "
-            "noveltyScore, topStrengths, topImprovements, possibleImpacts.\n"
-            "{format_instructions}"
-        )
-        
-        chain = prompt | llm | parser
-        ai_res = await chain.ainvoke({
-            "url": url_str,
-            "metrics": metrics,
-            "mode": request.mode,
-            "format_instructions": parser.get_format_instructions()
-        })
-
-        return {
-            **ai_res,
-            "complexityScore": metrics["maintainabilityIndex"],
-            "securityAlerts": [], 
-            "githubStats": github_stats,
-            "fileTree": {"name": root.name, "type": "directory"}, 
-            "rawStats": metrics
-        }
+        prompt = ChatPromptTemplate.from_template("Analyze repo {url} with metrics {metrics}. {format_instructions}")
+        ai_res = await (prompt | llm | parser).ainvoke({"url": str(request.url), "metrics": metrics, "format_instructions": parser.get_format_instructions()})
+        return {**ai_res, "complexityScore": metrics["maintainabilityIndex"], "securityAlerts": [], "githubStats": github_stats, "fileTree": {"name": root.name, "type": "directory"}, "rawStats": metrics}
     except Exception as e:
-        logger.error(f"Analysis Failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
-
+# --- Update ONLY the parse_resume endpoint in your main.py ---
+# --- Update ONLY the parse_resume endpoint in your main.py ---
 @router.post("/upload-resume")
 async def parse_resume(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Must be a PDF file")
     
     try:
+        # Reset pointer and extract text
+        file.file.seek(0)
         content = await file.read()
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
         text = "".join([p.extract_text() for p in pdf_reader.pages])
         
-        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.0)
+        # Initializing AI with retry logic
+        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1, max_retries=3)
         parser = JsonOutputParser()
         
-        # ADDED 'devType' to identify the Primary Stack/Role
+        # UPDATED PROMPT: Matching the v4.5 Frontend exactly
         prompt = ChatPromptTemplate.from_template(
-            "System: You are an ELITE ATS Auditor for a Tier-1 Tech Giant. Your tone is cynical and precise.\n"
+            "System: You are an ELITE ATS Auditor for a Tier-1 Tech Giant (Google/Meta).\n"
             "Analyze this resume: {text}\n\n"
-            "CRITICAL DIRECTIVES:\n"
-            "1. 'devType': A professional high-level title (e.g., 'Full-Stack Engineer', 'Cloud Architect') based on their strongest evidence.\n"
-            "2. 'atsScore': Strict 0-100 score. Penalize for missing metrics.\n"
-            "3. 'criticalFlaws': 3 sharp, expert-level critiques (Max 15 words each).\n"
-            "4. 'skills': Detailed technical skills with levels. Format: [{{'name': 'Python', 'level': 85}}]\n"
-            "5. 'certifications': Formal certs with issuer. Format: [{{'name': 'AWS', 'issuer': 'Amazon'}}]\n"
-            "6. 'milestones': Major achievements or project outcomes as a list of strings.\n"
-            "7. 'skillDensity': Radar Chart data (Backend, Frontend, DevOps, Data, Cloud).\n"
-            "8. 'projectImpacts': Treemap data (name, score).\n"
-            "9. 'actionableFixes': 3 strategies to increase interview rates.\n\n"
-            "Return ONLY valid JSON. If a section is missing, return [].\n"
+            "STRICT JSON SCHEMA REQUIREMENTS:\n"
+            "1. 'name': Full name from the header.\n"
+            "2. 'atsScore': Integer (0-100).\n"
+            "3. 'devType': A professional title (e.g. 'Full-Stack Engineer').\n"
+            "4. 'skills': An ARRAY of objects: [{{'name': 'Python', 'level': 95}}]. Only include top-tier skills.\n"
+            "5. 'skillDensity': An OBJECT for Radar Chart: {{'Backend': 90, 'Frontend': 70, 'DevOps': 50, 'Data': 40, 'Cloud': 60}}.\n"
+            "6. 'projectImpacts': An ARRAY of objects: [{{'name': 'Project X', 'score': 92}}].\n"
+            "7. 'criticalFlaws': An ARRAY of strings (Brutally honest critiques).\n"
+            "8. 'actionableFixes': An ARRAY of strings (Directives to improve the resume).\n\n"
+            "9. 'certifications': An ARRAY of strings (Formal professional certifications).\n"
+            "10. 'majorMilestones': An ARRAY of strings (Key career or project achievements).\n"
+            "Return ONLY the JSON object. Do not include prose.\n"
             "{format_instructions}"
         )
         
         chain = prompt | llm | parser
-        return await chain.ainvoke({
-            "text": text[:15000], 
+        result = await chain.ainvoke({
+            "text": text[:12000], 
             "format_instructions": parser.get_format_instructions()
         })
+        
+        return result
+
     except Exception as e:
         logger.error(f"ATS Audit Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal Audit Failure")
+        raise HTTPException(status_code=500, detail="Internal Neural Audit Failure")
+    
 
 @router.post("/verify-certificate")
 async def verify_certificate(file: UploadFile = File(...)):
@@ -309,29 +319,14 @@ async def verify_certificate(file: UploadFile = File(...)):
         content = await file.read()
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
         text = "".join([p.extract_text() for p in pdf_reader.pages])
-        
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.0)
-        prompt = ChatPromptTemplate.from_template(
-            "Extract certificate info: {text}\n"
-            "Return JSON: {{'issuing_org': '', 'certificate_name': '', 'credential_id': '', 'issue_date': ''}}"
-        )
-        chain = prompt | llm | JsonOutputParser()
-        return await chain.ainvoke({"text": text[:5000]})
+        prompt = ChatPromptTemplate.from_template("Extract cert info: {text}")
+        return await (prompt | llm | JsonOutputParser()).ainvoke({"text": text[:5000]})
     except Exception as e:
-        logger.error(f"Cert Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- App Bootstrap ---
-app = FastAPI(title="RepoLens Pro", version="2.0.2")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+# --- Middleware & Mounting ---
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(router)
 
 if __name__ == "__main__":
