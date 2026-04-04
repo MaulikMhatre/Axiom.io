@@ -7,8 +7,8 @@ import {
   Activity,
   LayoutDashboard,
   LineChart,
-  Github,
-  Linkedin,
+  Globe,
+  Share2,
   UserCircle,
   Settings,
   LogOut
@@ -46,8 +46,8 @@ const Navbar = () => {
   const allNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Resume', href: '/resume', icon: LineChart },
-    { name: 'LinkedIn', href: '/linkedin', icon: Linkedin },
-    { name: 'Github', href: '/github', icon: Github },
+    { name: 'LinkedIn', href: '/linkedin', icon: Share2 },
+    { name: 'Github', href: '/github', icon: Globe },
     { name: 'Portfolio', href: '/portfolio', icon: UserCircle }
   ];
 
