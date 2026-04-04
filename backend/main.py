@@ -100,30 +100,28 @@ def get_github_headers() -> dict:
 
 @app.get("/api/github/{username}")
 async def fetch_real_github(username: str):
-    """Fetches live data and top projects using Async HTTP."""
     headers = get_github_headers()
     
     try:
-        # UPGRADE: Using httpx for non-blocking concurrent requests
         async with httpx.AsyncClient() as client:
             user_task = client.get(f"https://api.github.com/users/{username}", headers=headers)
             repos_task = client.get(f"https://api.github.com/users/{username}/repos?per_page=100&sort=stars", headers=headers)
             
             user_resp, repos_resp = await asyncio.gather(user_task, repos_task)
             
-            if user_resp.status_code == 403 or repos_resp.status_code == 403:
-                raise HTTPException(status_code=403, detail="GitHub API Rate Limit Exceeded. Add a GITHUB_TOKEN to .env.")
+            if user_resp.status_code == 403:
+                raise HTTPException(status_code=403, detail="GitHub API Rate Limit Exceeded.")
             
             user_data = user_resp.json()
             repos_data = repos_resp.json()
         
+        # Calculate Stats
         total_stars = sum(repo.get('stargazers_count', 0) for repo in repos_data if isinstance(repo, dict))
         languages = {}
         top_projects = []
         
         for repo in repos_data:
             if not isinstance(repo, dict): continue
-            
             if repo.get('language'):
                 lang = repo['language']
                 languages[lang] = languages.get(lang, 0) + 1
@@ -136,24 +134,124 @@ async def fetch_real_github(username: str):
                     "language": repo.get("language", "Mixed"),
                     "url": repo.get("html_url")
                 })
-                
+
+        # WATERFALL FALLBACK: Extract Education from Bio using LLM
+        bio = user_data.get("bio", "")
+        extracted_edu = {"college": None, "major": None}
+        
+        if bio:
+            try:
+                llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.0)
+                edu_prompt = ChatPromptTemplate.from_template(
+                    "Extract education info from this GitHub bio: {bio}\n"
+                    "Return JSON with keys 'college' and 'major'. Use null if not found."
+                )
+                edu_chain = edu_prompt | llm | JsonOutputParser()
+                extracted_edu = await edu_chain.ainvoke({"bio": bio})
+            except Exception:
+                pass # Fallback to null if LLM fails
+
         return {
             "name": user_data.get("name", username),
+            "college": extracted_edu.get("college"),
+            "major": extracted_edu.get("major"),
             "avatarUrl": user_data.get("avatar_url", ""),
-            "bio": user_data.get("bio", "Software Engineer"),
+            "bio": bio or "Software Engineer",
             "publicRepos": user_data.get("public_repos", 0),
             "totalStars": total_stars,
             "topLanguages": sorted(languages.items(), key=lambda x: x[1], reverse=True)[:5],
             "topProjects": top_projects
         }
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"GitHub Fetch Error: {e}")
         raise HTTPException(status_code=400, detail="Failed to fetch GitHub data")
+    
+@app.post("/api/upload-linkedin")
+async def parse_linkedin(file: UploadFile = File(...)):
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Must be a PDF file")
+    
+    try:
+        # 1. Extract Text
+        pdf_reader = PyPDF2.PdfReader(file.file)
+        text = "".join([p.extract_text() for p in pdf_reader.pages])
+        
+        # 2. Enhanced Prompting for the "Audit" Experience
+        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.2) # Slight temp for "personality"
+        
+        prompt = ChatPromptTemplate.from_template(
+            """
+    SYSTEM ROLE:
+    You are a brutal, elite Tech Recruiter and Profile Auditor specializing in high-performance Fullstack Engineering and AI Architecture. 
+    Your goal is to strip away the "LinkedIn Fluff" and find the objective proof of a candidate's value. 
+    You are cynical, data-driven, and unimpressed by buzzwords.
+
+    INPUT DATA:
+    LinkedIn Profile PDF Text: {text}
+
+    SCORING RUBRIC (Trust Index - 0-100):
+    - 40 pts: Quantifiable Impact (Did they use numbers? %, $, ms, users?). 
+    - 30 pts: Technical Stack Consistency (Does the tech list make sense for their projects?).
+    - 20 pts: Proof of Work (Links to GitHub, live deployments, research papers).
+    - 10 pts: Education & Pedigree (Relevance of degree/institution like DJSCE).
+    - CRITICAL DEDUCTION: -10 pts for "Buzzword Soup" (e.g., listing 'Team Player', 'Leader', or 50+ unrelated languages).
+
+    SKILL RADAR AXIS:
+    Evaluate the candidate on a scale of 0-100 across these 5 domains: Frontend, Backend, AI/ML, DevOps, and UI/UX Design.
+
+    OUTPUT INSTRUCTIONS:
+    Return ONLY a valid JSON object. Do not include markdown formatting or prose outside the JSON.
+
+    JSON SCHEMA:
+    {{
+      "name": "Full Name",
+      "headline": "A more accurate, 'no-fluff' professional title based on their real work.",
+      "credibility_score": integer,
+      "industry_percentile": integer (e.g., 92 means top 8%),
+      "verification_tags": ["Short Tag 1", "Short Tag 2"],
+      "brutal_feedback": [
+        "Sharp critique of their summary fluff",
+        "Analysis of their project credibility gaps",
+        "Honest take on their skill density vs title inflation"
+      ],
+      "roadmap": [
+        {{ "title": "Immediate Fix", "description": "Specific action to improve LinkedIn visibility" }},
+        {{ "title": "Skill Gap", "description": "Technical certification or project needed to back up claims" }}
+      ],
+      "skill_metrics": [
+        {{ "subject": "Frontend", "A": integer }},
+        {{ "subject": "Backend", "A": integer }},
+        {{ "subject": "AI/ML", "A": integer }},
+        {{ "subject": "DevOps", "A": integer }},
+        {{ "subject": "Design", "A": integer }}
+      ],
+      "momentum_data": [
+        {{ "month": "Oct", "score": integer }},
+        {{ "month": "Nov", "score": integer }},
+        {{ "month": "Dec", "score": integer }},
+        {{ "month": "Jan", "score": integer }},
+        {{ "month": "Feb", "score": integer }},
+        {{ "month": "Mar", "score": current_credibility_score }}
+      ],
+      "education": [{{ "institution": "Name", "degree": "Type", "field": "Major" }}]
+    }}
+    """
+        )
+        
+        # 3. Execution
+        chain = prompt | llm | JsonOutputParser()
+        
+        # Limit text to avoid context window issues, but keep it substantial
+        result = await chain.ainvoke({"text": text[:12000]})
+        
+        return result
+
+    except Exception as e:
+        logger.error(f"LinkedIn Parsing Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to audit LinkedIn PDF")
 
 @app.post("/api/verify-certificate")
-def verify_certificate(file: UploadFile = File(...)):
+async def verify_certificate(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Must be a PDF file")
 
@@ -163,17 +261,17 @@ def verify_certificate(file: UploadFile = File(...)):
         
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.0)
         prompt = ChatPromptTemplate.from_template(
-            "Extract the following from this certificate text: {text}\n"
+            "Extract details from this certificate: {text}\n"
             "Return JSON: {{'issuing_org': '', 'certificate_name': '', 'credential_id': '', 'issue_date': ''}}"
         )
         chain = prompt | llm | JsonOutputParser()
-        return chain.invoke({"text": text[:5000]})
+        return await chain.ainvoke({"text": text[:5000]})
     except Exception as e:
-        logger.error(f"Certificate Parsing Error: {e}")
+        logger.error(f"Certificate Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to parse certificate")
 
 @app.post("/api/upload-resume")
-def parse_resume(file: UploadFile = File(...)):
+async def parse_resume(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Must be a PDF file")
     
@@ -184,15 +282,17 @@ def parse_resume(file: UploadFile = File(...)):
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.0)
         prompt = ChatPromptTemplate.from_template(
             "Analyze this resume text: {text}\n"
-            "Return ONLY a valid JSON object with exact keys:\n"
-            "1. 'extractedSkills': Array of arrays (e.g., [['Python', 9], ['React', 8]])\n"
-            "2. 'achievements': Array of strings.\n"
-            "3. 'certifications': Array of strings.\n"
-            "4. 'workExperience': Array of objects (keys: 'role', 'company', 'duration', 'description').\n"
+            "Return ONLY a valid JSON object. If a piece of information is missing, set the value to null.\n"
+            "Keys:\n"
+            "1. 'name': Full name\n"
+            "2. 'college': Specific university name\n"
+            "3. 'major': Degree or field of study\n"
+            "4. 'extractedSkills': [[name, level_1_to_10]]\n"
+            "5. 'workExperience': [{{role, company, duration, description}}]"
         )
         
         chain = prompt | llm | JsonOutputParser()
-        return chain.invoke({"text": text[:10000]})
+        return await chain.ainvoke({"text": text[:10000]})
     except Exception as e:
         logger.error(f"Resume Parsing Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to parse resume")
