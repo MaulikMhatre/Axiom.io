@@ -4,15 +4,41 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Sparkles, Lock, Mail } from 'lucide-react';
+import { useRouter } from 'next/dist/client/components/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+const router = useRouter(); // Import from 'next/navigation'
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Authenticating:", email);
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
+
+  try {
+    const response = await fetch('http://localhost:8000/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: email, // Backend expects 'username'
+        password: password 
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Authentication failed');
+    }
+
+    // Success! Store user info and redirect
+    localStorage.setItem('user', data.username);
+    window.location.href = '/dashboard'; 
+  } catch (err: any) {
+    setError(err.message);
+  }
+};
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-slate-950">

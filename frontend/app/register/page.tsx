@@ -13,10 +13,35 @@ export default function RegisterPage() {
     confirmPassword: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Initializing Identity:", formData.email);
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  try {
+    const response = await fetch('http://localhost:8000/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: formData.fullName.replace(/\s+/g, '').toLowerCase(), // Create a username
+        email: formData.email,
+        password: formData.password
+      }),
+    });
+
+    if (response.ok) {
+      window.location.href = '/login';
+    } else {
+      const errorData = await response.json();
+      alert(errorData.detail);
+    }
+  } catch (error) {
+    console.error("Connection failed:", error);
+  }
+};
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-slate-950 font-sans">

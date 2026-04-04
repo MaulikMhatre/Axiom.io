@@ -1,15 +1,38 @@
+import React from 'react';
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 font-sans relative overflow-hidden pt-20">
+    <div className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 font-sans relative overflow-hidden">
       
+      {/* 🧭 Navigation Header */}
+      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#09090b]/50 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-white italic">P</div>
+            <span className="font-bold tracking-tighter text-xl">PHRONEX <span className="text-indigo-500">ID</span></span>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <a href="/login" className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
+              Login
+            </a>
+            <a 
+              href="/register" 
+              className="px-5 py-2.5 bg-white text-black rounded-xl text-sm font-bold hover:bg-zinc-200 transition-all active:scale-95"
+            >
+              Get Started
+            </a>
+          </div>
+        </div>
+      </nav>
+
       {/* Aesthetic Background Orbs */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[130px] rounded-full" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-600/10 blur-[120px] rounded-full" />
       </div>
 
-      <main className="flex-1 max-w-5xl mx-auto flex flex-col items-center justify-center text-center px-6">
+      <main className="flex-1 max-w-5xl mx-auto flex flex-col items-center justify-center text-center px-6 pt-32">
         
         {/* Branding badge */}
         <div className="mb-8 p-1.5 px-4 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-[10px] font-bold uppercase tracking-[0.3em] text-indigo-400 inline-flex items-center gap-2">

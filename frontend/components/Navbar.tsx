@@ -16,23 +16,27 @@ import {
 import { LimelightNav, NavItem } from "@/components/ui/limelight-nav";
 import SkyToggle from "@/components/ui/sky-toggle";
 
-const allNavItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Resume', href: '/resume', icon: LineChart },
-  { name: 'LinkedIn', href: '/LinkedIn', icon: LayoutDashboard }, 
-  { name: 'Github', href: '/github', icon: LayoutDashboard },
-  { name: 'Portfolio', href: '/portfolio', icon: UserCircle }
-];
-
 const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
 
-  // --- Dropdown State & Logic ---
+  // --- Auth & Profile State ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null); // Null means not loaded yet
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // --- Logic: Auth Check & Click Outside ---
   useEffect(() => {
+    // 1. Check if user exists in localStorage
+    const storedUser = localStorage.getItem('user');
+    
+    if (!storedUser) {
+      setUserName(null);
+    } else {
+      setUserName(storedUser);
+    }
+
+    // 2. Click outside listener
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
@@ -40,18 +44,25 @@ const Navbar = () => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [pathname]); // Re-check on route change
 
-  // 1. Defined all items for the specific pages of your project
-  const allNavItems = [
+  // --- Logic: Sign Out ---
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    setUserName(null); // Instantly hide navbar
+    setIsProfileOpen(false);
+    router.push('/login');
+  };
+
+  // --- Navigation Config ---
+  const allNavItems = useMemo(() => [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Resume', href: '/resume', icon: LineChart },
     { name: 'LinkedIn', href: '/linkedin', icon: Share2 },
     { name: 'Github', href: '/github', icon: Globe },
     { name: 'Portfolio', href: '/portfolio', icon: UserCircle }
-  ];
+  ], []);
 
-  // 2. Map items directly for the Limelight component
   const navItemsForLimelight: NavItem[] = useMemo(() => {
     return allNavItems.map(item => ({
       id: item.href,
@@ -59,12 +70,19 @@ const Navbar = () => {
       icon: <item.icon size={18} />,
       onClick: () => router.push(item.href)
     }));
-  }, [router]);
+  }, [router, allNavItems]);
 
   const activeIndex = useMemo(() => {
     const index = navItemsForLimelight.findIndex(item => item.id === pathname);
     return index !== -1 ? index : 0;
   }, [pathname, navItemsForLimelight]);
+
+  // --- RENDERING GUARD ---
+  // If no user is logged in, return null (renders nothing)
+  // This also hides the Navbar on the /login and /register pages
+  if (!userName || pathname === '/login' || pathname === '/register') {
+    return null;
+  }
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-background/80 dark:bg-black/90 backdrop-blur-xl text-foreground border-b border-border dark:border-white/5 transition-all duration-500">
@@ -107,7 +125,6 @@ const Navbar = () => {
               <SkyToggle />
             </div>
 
-            {/* Profile Dropdown Menu */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -116,16 +133,14 @@ const Navbar = () => {
                 <UserCircle size={20} />
               </button>
 
-              {/* The Dropdown Card */}
               {isProfileOpen && (
                 <div className="absolute right-0 mt-3 w-56 bg-white dark:bg-zinc-900 border border-border dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-4 border-b border-border dark:border-white/5">
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Signed in as</p>
-                    <p className="text-sm text-foreground font-bold truncate">Developer</p>
+                    <p className="text-sm text-foreground font-bold truncate capitalize">{userName}</p>
                   </div>
 
                   <div className="p-2 space-y-1">
-                    {/* Link to Settings Page */}
                     <Link
                       href="/settings"
                       onClick={() => setIsProfileOpen(false)}
@@ -135,7 +150,10 @@ const Navbar = () => {
                       Update Profile
                     </Link>
 
-                    <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors group">
+                    <button 
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors group"
+                    >
                       <LogOut size={16} className="text-red-400 dark:text-red-500/70 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors" />
                       Sign Out
                     </button>
@@ -143,7 +161,6 @@ const Navbar = () => {
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </div>
