@@ -180,7 +180,7 @@ export default function DashboardPage() {
                             <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center justify-center gap-2 w-full"><Cpu size={16} /> Skill Density</span>
                         </div>
                         <div className="w-full h-[250px] -mt-6">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data.radarData}>
                                     <PolarGrid stroke={isDark ? "#3f3f46" : "#e4e4e7"} strokeDasharray="3 3" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: isDark ? '#d4d4d8' : '#27272a', fontSize: 13, fontWeight: 'bold' }} />
