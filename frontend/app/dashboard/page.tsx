@@ -1,218 +1,214 @@
 "use client";
-
-import React, { useState, useEffect } from 'react';
-import {
-    LayoutDashboard,
-    Zap,
-    ShieldCheck,
-    ArrowRight,
-    Fingerprint,
-    Globe,
-    Share2,
-    Loader2,
-    CheckCircle,
-    Activity,
-    Lock,
-    Cpu,
-    BarChart3,
-    History
+import React, { useEffect, useState } from 'react';
+import { 
+  CheckCircle, Activity, Cpu, Fingerprint, Zap, Loader2, GitCommitHorizontal, Star, Trophy, Folder
 } from 'lucide-react';
-import { analyzeRepo } from '@/lib/api';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export default function Dashboard() {
-    const [githubUrl, setGithubUrl] = useState("");
-    const [repoData, setRepoData] = useState<any>(null);
-    const [loading, setLoading] = useState(false);
-    const [isInputVisible, setIsInputVisible] = useState(false);
-    const [systemPulse, setSystemPulse] = useState(0);
+export default function DashboardPage() {
+    const [data, setData] = useState<any>(null);
+    const [mounted, setMounted] = useState(false);
 
-    // Aesthetic Pulse Effect
     useEffect(() => {
-        const interval = setInterval(() => {
-            setSystemPulse(Math.floor(Math.random() * 10) + 90);
-        }, 3000);
-        return () => clearInterval(interval);
+        setMounted(true);
+        if (typeof window !== 'undefined') {
+            const gitRaw = localStorage.getItem('user_profile');
+            const resumeRaw = localStorage.getItem('user_resume_data');
+            const regRaw = localStorage.getItem('user_registration');
+            
+            const gitData = gitRaw ? JSON.parse(gitRaw) : {};
+            const resumeData = resumeRaw ? JSON.parse(resumeRaw) : {};
+            const regData = regRaw ? JSON.parse(regRaw) : {};
+            const projects = gitData.topProjects || [];
+
+            // --- 1. GENERATE DYNAMIC 6-MONTH WINDOW (Nov 2025 - Apr 2026) ---
+            const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const now = new Date(); // April 2026
+            const history: any[] = [];
+
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                history.push({
+                    month: monthsShort[d.getMonth()],
+                    year: d.getFullYear(),
+                    commits: 0,
+                });
+            }
+
+            // --- 2. MAP COMMITS TO BUCKETS ---
+            projects.forEach((p: any) => {
+                if (p.last_updated) {
+                    const pDate = new Date(p.last_updated);
+                    if (!isNaN(pDate.getTime())) {
+                        const pMonth = monthsShort[pDate.getMonth()];
+                        const pYear = pDate.getFullYear();
+
+                        const bucket = history.find(m => m.month === pMonth && m.year === pYear);
+                        if (bucket) {
+                            bucket.commits += (Number(p.personal_commits) || 0);
+                        }
+                    }
+                }
+            });
+
+            // --- 3. BRUTAL INTEGRITY ALGORITHM ---
+            const extractScore = (val: any) => {
+                if (!val) return 0;
+                return parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
+            };
+
+            const R_Score = extractScore(resumeData.atsScore || resumeData.credibility_score);
+            const G_Stars = Number(gitData.totalStars || 0);
+            const G_Impact = Math.min((G_Stars * 12) + (gitData.publicRepos * 2), 100);
+            const totalCommits = projects.reduce((acc: number, curr: any) => acc + (Number(curr.personal_commits) || 0), 0);
+            
+            // Formula: 40% Resume, 40% GitHub Social, 20% Commit Consistency
+            const finalScore = Math.round((R_Score * 0.4) + (G_Impact * 0.4) + (Math.min(totalCommits, 100) * 0.2)) || 88;
+
+            setData({
+                ...gitData,
+                displayName: resumeData.name || regData.name || gitData.name || "Maulik Mhatre",
+                displayCollege: regData.college || "D.J. Sanghvi College of Engineering",
+                neuralScore: finalScore,
+                momentum: history,
+                milestones: resumeData.majorMilestones || [],
+                topProjects: projects.slice(0, 4)
+            });
+        }
     }, []);
 
-    const handleAnalyze = async () => {
-        if (!githubUrl) return;
-        setLoading(true);
-        try {
-            const data = await analyzeRepo(githubUrl);
-            setRepoData(data);
-            setIsInputVisible(false);
-        } catch (err) {
-            console.error(err);
-            alert("Verification failed. Protocol timeout.");
-        } finally {
-            setLoading(false);
-        }
-    };
+    if (!mounted || !data) return (
+        <div className="h-screen bg-[#050505] flex items-center justify-center">
+            <Loader2 className="animate-spin text-violet-500" size={40} />
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-[#09090b] text-zinc-100 p-6 md:p-12 pt-28 font-sans selection:bg-indigo-500/30">
-            <div className="max-w-7xl mx-auto space-y-8">
-
-                {/* --- NEURAL HEADER --- */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-800/50 pb-10 gap-6">
-                    <div>
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black tracking-[0.2em] uppercase">
-                                System Active
-                            </span>
-                            <span className="text-zinc-700 font-mono text-[9px]">Uptime: 99.9% // Node: PH-01</span>
+        <div className="min-h-screen bg-[#020203] text-zinc-100 pb-40 selection:bg-violet-500/30">
+            <div className="max-w-7xl mx-auto pt-32 px-6 space-y-12">
+                
+                {/* Identity Header */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 bg-zinc-900/10 border border-zinc-800 rounded-[3rem] p-10 flex items-center gap-10 backdrop-blur-3xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 group-hover:opacity-[0.06] transition-opacity">
+                            <Fingerprint size={250} />
                         </div>
-                        <h1 className="text-5xl font-black tracking-tighter uppercase italic text-white flex items-center gap-4">
-                            Phronex <span className="text-indigo-600">Command</span>
-                        </h1>
-                    </div>
-                    <div className="flex gap-8">
-                        <HeaderStat label="Neural Load" value={`${systemPulse}%`} color="text-emerald-500" />
-                        <HeaderStat label="Verified Nodes" value={repoData ? "04" : "01"} color="text-indigo-500" />
-                    </div>
-                </div>
-
-                {/* --- MAIN COMMAND GRID --- */}
-                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
-
-                    {/* 1. SOURCE AUDIT (The Action Center) */}
-                    <div className="md:col-span-2 lg:col-span-3 bg-white/[0.02] border border-white/10 p-8 rounded-[2.5rem] hover:border-indigo-500/30 transition-all group relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <Globe size={120} />
-                        </div>
-                        
-                        <div className="relative z-10">
-                            <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] mb-6 flex items-center gap-2">
-                                <Cpu size={14} className="text-indigo-500" /> Repository Intelligence
-                            </h3>
-                            
-                            {repoData ? (
-                                <div className="space-y-6">
-                                    <p className="text-2xl font-bold leading-tight text-white italic">
-                                        "{repoData.projectSummary.substring(0, 100)}..."
-                                    </p>
-                                    <div className="flex gap-3">
-                                        {repoData.techStack.map((s: string) => (
-                                            <span key={s} className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                                                {s}
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <div className="pt-6 border-t border-zinc-800 flex items-center gap-2 text-emerald-500 font-mono text-[10px] font-bold uppercase">
-                                        <CheckCircle size={14} /> Audit Sequence Complete
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-8">
-                                    <p className="text-zinc-500 text-lg font-medium leading-relaxed max-w-sm">
-                                        Connect your GitHub to initialize the <span className="text-white">Proof-of-Work</span> matrix and verify architectural complexity.
-                                    </p>
-                                    {isInputVisible ? (
-                                        <div className="flex flex-col gap-3 max-w-sm">
-                                            <input
-                                                type="text"
-                                                placeholder="Enter Repository URL..."
-                                                className="bg-black border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-indigo-500 transition-all font-mono"
-                                                value={githubUrl}
-                                                onChange={(e) => setGithubUrl(e.target.value)}
-                                            />
-                                            <button
-                                                disabled={loading}
-                                                onClick={handleAnalyze}
-                                                className="flex items-center justify-center gap-3 bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all disabled:opacity-50"
-                                            >
-                                                {loading ? <Loader2 className="animate-spin" size={18} /> : "Initiate Audit"}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setIsInputVisible(true)}
-                                            className="group/btn flex items-center gap-4 bg-white text-black px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] transition-all"
-                                        >
-                                            Connect Source <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* 2. SYSTEM STATUS (Data Visual) */}
-                    <div className="md:col-span-2 lg:col-span-3 bg-indigo-600/[0.03] border border-indigo-500/20 p-8 rounded-[2.5rem] flex flex-col justify-between relative overflow-hidden">
-                        <div className="absolute inset-0 opacity-5 pointer-events-none font-mono text-[8px] leading-none p-4 break-all">
-                            {Array(20).fill("VERIFY_TOKEN_INIT_PHRONEX_PROTOCOL_BLOCK_0x992_").join("")}
-                        </div>
-                        <div>
-                            <h3 className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.3em] mb-8 flex items-center gap-2">
-                                <Activity size={14} /> Integrity Index
-                            </h3>
-                            <div className="text-8xl font-black italic tracking-tighter text-white leading-none">
-                                {repoData ? repoData.complexityScore : "0.0"}<span className="text-indigo-600">/</span>10
+                        <img src={data.avatarUrl} className="w-32 h-32 rounded-full border-4 border-zinc-800 z-10 grayscale hover:grayscale-0 transition-all duration-700" alt="Avatar" />
+                        <div className="z-10 space-y-2">
+                            <h1 className="text-6xl font-black italic uppercase tracking-tighter text-white leading-none">{data.displayName}</h1>
+                            <p className="text-zinc-500 font-mono text-xs tracking-[0.4em] uppercase font-bold">{data.displayCollege}</p>
+                            <div className="flex gap-3 pt-4">
+                                <span className="px-4 py-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center gap-2">
+                                   <Activity size={12}/> Analysis_Window: 180D_SYNC
+                                </span>
                             </div>
                         </div>
-                        <div className="space-y-4">
-                             <div className="flex justify-between items-end">
-                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Verification Status</span>
-                                <span className="text-[10px] font-mono text-zinc-400">{repoData ? "COMPLETED" : "AWAITING_INPUT"}</span>
-                             </div>
-                             <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-indigo-500 transition-all duration-1000 ease-out" 
-                                    style={{ width: repoData ? `${repoData.noveltyScore}%` : '0%' }}
-                                />
-                             </div>
-                        </div>
                     </div>
 
-                    {/* 3. EXPERIENCE SYNC (Bento Bottom) */}
-                    <div className="md:col-span-2 lg:col-span-2 bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem] hover:bg-white/[0.04] transition-all">
-                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl w-fit mb-6">
-                            <Share2 size={24} className="text-emerald-400" />
+                    <div className="bg-white text-black rounded-[3rem] p-10 flex flex-col justify-between relative overflow-hidden group shadow-[0_20px_50px_rgba(255,255,255,0.05)]">
+                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-black/40 z-10">Brutal integrity Score</span>
+                        <div className="z-10 flex items-baseline gap-2">
+                            <span className="text-9xl font-black italic tracking-tighter leading-none">{data.neuralScore}</span>
+                            <span className="text-2xl font-bold text-black/20 italic">/100</span>
                         </div>
-                        <h3 className="text-lg font-black uppercase tracking-tight mb-2">Experience Sync</h3>
-                        <p className="text-zinc-500 text-xs leading-relaxed font-medium">
-                            Import professional history to calculate the **Industry Velocity** score.
-                        </p>
-                        <button className="mt-8 w-full py-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:border-zinc-600 transition-all">
-                            Parse Resume PDF
-                        </button>
+                        <Cpu className="absolute -bottom-10 -right-10 opacity-5 group-hover:scale-110 transition-transform duration-1000" size={250} />
                     </div>
-
-                    {/* 4. RECENT ACTIVITY FEED */}
-                    <div className="md:col-span-2 lg:col-span-4 bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-8">
-                        <h3 className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.3em] mb-6 flex items-center gap-2">
-                            <History size={14} /> Audit Trail
-                        </h3>
-                        <div className="space-y-4">
-                            <ActivityItem icon={<Zap size={12} />} text="Identity Matrix initialized." time="Just now" />
-                            <ActivityItem icon={<Lock size={12} />} text="Secure node PH-01 established." time="2m ago" />
-                            {repoData && <ActivityItem icon={<CheckCircle size={12} className="text-emerald-500" />} text={`Verified ${githubUrl.split('/').pop()}`} time="Recently" />}
-                        </div>
-                    </div>
-
                 </div>
-            </div>
-        </div>
-    );
-}
 
-function HeaderStat({ label, value, color }: { label: string, value: string, color: string }) {
-    return (
-        <div className="text-right">
-            <div className={`text-2xl font-black italic tracking-tighter ${color}`}>{value}</div>
-            <div className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{label}</div>
-        </div>
-    );
-}
+                {/* --- 6-MONTH GRIND GRAPH --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-8 bg-zinc-900/10 border border-zinc-800 rounded-[3.5rem] p-10 flex flex-col">
+                        <div className="flex justify-between items-center mb-10 px-2">
+                            <h3 className="text-xs font-black uppercase tracking-[0.5em] text-zinc-500 flex items-center gap-3 italic">
+                                <GitCommitHorizontal size={18} className="text-violet-500" /> Neural Contribution Pulse
+                            </h3>
+                            <div className="px-3 py-1 bg-zinc-800 text-zinc-500 text-[9px] font-mono border border-zinc-700 rounded uppercase tracking-widest">Time_Series_Audit</div>
+                        </div>
+                        
+                        <div className="w-full h-[320px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={data.momentum} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorCommits" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/>
+                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} opacity={0.2} />
+                                    <XAxis 
+                                        dataKey="month" 
+                                        stroke="#52525b" 
+                                        fontSize={12} 
+                                        fontWeight="900" 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        dy={10}
+                                    />
+                                    <YAxis stroke="#52525b" fontSize={10} axisLine={false} tickLine={false} domain={[0, 'auto']} />
+                                    
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            backgroundColor: '#09090b', 
+                                            border: '1px solid #27272a', 
+                                            borderRadius: '12px',
+                                            paddingLeft: '12px',
+                                            paddingRight: '12px',
+                                            paddingTop: '8px',
+                                            paddingBottom: '8px'
+                                        }}
+                                        itemStyle={{ 
+                                            color: '#8b5cf6', 
+                                            fontSize: '12px', 
+                                            fontWeight: '900',
+                                            margin: 0
+                                        }}
+                                        cursor={{ stroke: '#8b5cf6', strokeWidth: 1 }}
+                                    />
+                                    
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="commits" 
+                                        stroke="#8b5cf6" 
+                                        strokeWidth={4} 
+                                        fillOpacity={1} 
+                                        fill="url(#colorCommits)" 
+                                        animationDuration={1500}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
 
-function ActivityItem({ icon, text, time }: { icon: React.ReactNode, text: string, time: string }) {
-    return (
-        <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl group hover:border-white/10 transition-all">
-            <div className="flex items-center gap-4">
-                <div className="text-zinc-600 group-hover:text-indigo-400 transition-colors">{icon}</div>
-                <span className="text-xs font-bold text-zinc-400">{text}</span>
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-zinc-900/10 border border-zinc-800 rounded-[2.5rem] p-8 group hover:border-violet-500/30 transition-all shadow-xl">
+                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Impact Radius</span>
+                            <div className="text-5xl font-black text-white italic">{data.totalStars || 0} <span className="text-sm font-mono text-zinc-800 uppercase">Stars</span></div>
+                        </div>
+                        <div className="bg-zinc-900/10 border border-zinc-800 rounded-[2.5rem] p-8 group hover:border-emerald-500/30 transition-all shadow-xl">
+                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Authenticated Nodes</span>
+                            <div className="text-5xl font-black text-white italic">{data.milestones.length || 0} <span className="text-sm font-mono text-zinc-800 uppercase">Tasks</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Repo Log */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-6">
+                    {data.topProjects.map((p: any, i: number) => (
+                        <div key={i} className="p-8 bg-black/40 border border-zinc-900 rounded-[2.5rem] hover:border-violet-500/40 transition-all group">
+                            <div className="text-[8px] font-mono text-zinc-700 mb-3 uppercase font-bold tracking-widest">Ref_Node: 0x{i}F</div>
+                            <h4 className="text-lg font-black text-zinc-100 uppercase italic tracking-tighter mb-4 truncate group-hover:text-violet-400 transition-colors leading-none">{p.name}</h4>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-zinc-600 font-mono uppercase">{p.language || 'CORE'}</span>
+                                <div className="flex items-center gap-2">
+                                    <GitCommitHorizontal size={14} className="text-violet-500" />
+                                    <span className="text-xs font-black text-white">{p.personal_commits || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
             </div>
-            <span className="text-[9px] font-mono text-zinc-700">{time}</span>
         </div>
     );
 }
