@@ -10,6 +10,7 @@ import {
   Radar as RadarArea, ResponsiveContainer, Tooltip 
 } from 'recharts';
 import { useTheme } from 'next-themes';
+import AxiomForensicEngine from "@/components/AxiomForensicEngine";
 
 export default function GitHubAudit() {
   const [repoData, setRepoData] = useState<any>(null);
@@ -108,8 +109,8 @@ export default function GitHubAudit() {
             <h3 className="text-base font-black uppercase text-zinc-800 dark:text-zinc-300 font-bold tracking-[0.3em] mb-8 flex items-center gap-2">
               <Cpu size={14} className="text-indigo-700 dark:text-indigo-500" /> Competency Matrix
             </h3>
-            <div className="w-full h-[280px]"> 
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="w-full h-[280px] min-h-[280px]"> 
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                   <PolarGrid stroke={isDark ? "#3f3f46" : "#e4e4e7"} />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: isDark ? '#d4d4d8' : '#27272a', fontSize: 10, fontWeight: 'bold' }} />
@@ -218,6 +219,11 @@ export default function GitHubAudit() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* --- 5. FORENSIC ENGINE --- */}
+        <div className="pb-40 border-t border-zinc-800/10 dark:border-white/5 pt-20">
+          <AxiomForensicEngine />
         </div>
 
       </div>

@@ -11,7 +11,8 @@ import {
   Share2,
   UserCircle,
   Settings,
-  LogOut
+  LogOut,
+  Target
 } from 'lucide-react';
 import { LimelightNav, NavItem } from "@/components/ui/limelight-nav";
 import SkyToggle from "@/components/ui/sky-toggle";
@@ -60,6 +61,7 @@ const Navbar = () => {
     { name: 'Resume', href: '/resume', icon: LineChart },
     { name: 'LinkedIn', href: '/linkedin', icon: Share2 },
     { name: 'Github', href: '/github', icon: Globe },
+    { name: 'LeetCode', href: '/dashboard/leetcode', icon: Target },
     { name: 'Portfolio', href: '/portfolio', icon: ShieldCheck }
   ], []);
 
