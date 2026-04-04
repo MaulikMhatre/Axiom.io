@@ -37,3 +37,18 @@ export async function analyzeRepo(url: string, mode: string = "standard") {
     if (!res.ok) throw new Error("Failed to analyze repository");
     return res.json();
 }
+
+export async function fetchLeetCodeProfile(username: string, email?: string) {
+    const url = new URL(`${API_BASE_URL}/api/leetcode/${username}`);
+    if (email) url.searchParams.append("email", email);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error("Failed to fetch LeetCode profile");
+    return res.json();
+}
+
+export async function fetchMe(email: string) {
+    const res = await fetch(`${API_BASE_URL}/api/me?email=${email}`);
+    if (!res.ok) throw new Error("Failed to fetch user profile data");
+    return res.json();
+}
+

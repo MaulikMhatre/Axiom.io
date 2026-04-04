@@ -56,7 +56,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("RepoLens")
 
-MODEL_NAME = "gemini-2.5-flash" 
+MODEL_NAME = "gemini-2.5-flash-lite" 
 
 class Config:
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -102,6 +102,7 @@ class DBUser(Base):
     resume_data = Column(JSON, default={})
     linkedin_data = Column(JSON, default={})
     github_data = Column(JSON, default={})
+    leetcode_data = Column(JSON, default={})
 
 # Create the .db file and tables
 Base.metadata.create_all(bind=engine)
@@ -279,33 +280,33 @@ async def fetch_github_profile(username: str, email: Optional[str] = None, db: S
             total_stars = 0
 
             # 2. PROOF OF WORK FILTERING
-            # We check the 'contributors' for each repo to find YOUR specific work
-            for repo in all_repos[:20]: # Check the 20 most recent for depth
+            # We check the 'contributors' for each repo concurrently to find YOUR specific work
+            for repo in all_repos[:20]:
                 total_stars += repo.get("stargazers_count", 0)
+
+            async def fetch_contributors(repo):
                 repo_name = repo.get("name")
                 owner = repo.get("owner", {}).get("login")
-
-                # Fetch contributor stats for this specific repo
-                stats_resp = await client.get(
-                    f"https://api.github.com/repos/{owner}/{repo_name}/contributors", 
-                    headers=headers
-                )
-                
+                try:
+                    stats_resp = await client.get(
+                        f"https://api.github.com/repos/{owner}/{repo_name}/contributors", 
+                        headers=headers
+                    )
+                except Exception:
+                    return None
+                    
                 user_commits = 0
-                if stats_resp.status_code == 200:
+                if stats_resp and stats_resp.status_code == 200:
                     contributors = stats_resp.json()
-                    # Find the specific username in the contributor list
                     for contributor in contributors:
-                        if contributor.get("login").lower() == username.lower():
+                        if contributor.get("login", "").lower() == username.lower():
                             user_commits = contributor.get("contributions", 0)
                             break
-                
-                # INDIVIDUAL HARD WORK FORMULA
-                # High weight on personal commits, low weight on total stars
+                            
                 work_score = (user_commits * 15) + (repo.get("stargazers_count", 0) * 5)
                 
                 if user_commits > 0: # Only include if you actually wrote code
-                    repo_audit_list.append({
+                    return {
                         "name": repo_name,
                         "description": repo.get("description") or "No description.",
                         "personal_commits": user_commits,
@@ -313,7 +314,15 @@ async def fetch_github_profile(username: str, email: Optional[str] = None, db: S
                         "language": repo.get("language") or "Mixed",
                         "url": repo.get("html_url"),
                         "work_score": work_score
-                    })
+                    }
+                return None
+
+            tasks = [fetch_contributors(repo) for repo in all_repos[:20]]
+            results = await asyncio.gather(*tasks)
+            
+            for res in results:
+                if res is not None:
+                    repo_audit_list.append(res)
 
             # Sort by our new Proof of Work score
             top_5_repos = sorted(repo_audit_list, key=lambda x: x['work_score'], reverse=True)[:5]
@@ -365,23 +374,150 @@ async def fetch_github_profile(username: str, email: Optional[str] = None, db: S
             logger.error(f"Audit Error: {e}")
             raise HTTPException(status_code=500, detail="Neural sync failed.")
 
-@router.post("/analyze", response_model=RepoResponse)
-async def analyze_repo(request: RepoRequest):
+class ForensicAuditRequest(BaseModel):
+    url: HttpUrl
+
+class ForensicAuditResponse(BaseModel):
+    cleanCodeIndex: int
+    maintainabilityScore: int
+    securityLevel: str
+    authenticityPercent: float
+    aiVerdict: str
+    detailedMetrics: Dict[str, Any]
+
+@router.post("/forensic-audit", response_model=ForensicAuditResponse)
+async def forensic_audit(request: ForensicAuditRequest):
     temp_dir = tempfile.mkdtemp()
     try:
-        process = await asyncio.create_subprocess_exec("git", "clone", "--depth", "1", str(request.url), temp_dir)
-        await asyncio.wait_for(process.communicate(), timeout=30.0)
+        # 1. HARDENED CLONE
+        repo_url = str(request.url).rstrip('/')
+        try:
+            # Using depth=50 to get enough history for Authenticity check
+            await asyncio.to_thread(git.Repo.clone_from, repo_url, temp_dir, depth=50)
+        except Exception as ge:
+            logger.error(f"Git clone failed: {ge}")
+            raise HTTPException(status_code=500, detail="Target repository unreachable or private.")
+            
         root = Path(temp_dir)
-        metrics, github_stats = await asyncio.gather(asyncio.to_thread(AnalysisService.get_code_metrics, root), AnalysisService.get_github_stats(request.url))
-        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1)
+
+        # 2. STATIC METRICS (RADON)
+        metrics = AnalysisService.get_code_metrics(root)
+
+        # 3. STRICT SECURITY AUDIT (Severity Based)
+        security_score = 100
+        critical_patterns = [r"BEGIN RSA PRIVATE KEY", r"-----BEGIN", r"id_rsa"] 
+        warning_patterns = [r"(?i)api_key", r"(?i)secret", r"(?i)token", r"(?i)password"]
+
+        for p in root.rglob("*"):
+            if p.is_file() and p.suffix not in IGNORE_EXTS:
+                try:
+                    content = p.read_text(encoding="utf-8", errors="ignore")
+                    # Deduct 25 for keys, 10 for potential secrets
+                    for cp in critical_patterns:
+                        if re.search(cp, content): security_score -= 25
+                    for wp in warning_patterns:
+                        if re.search(wp, content): security_score -= 10
+                except: continue
+        
+        security_score = max(0, security_score)
+        security_level = "SAFE" if security_score > 85 else "WARNING" if security_score > 60 else "CRITICAL"
+
+        # 4. AUTHENTICITY AUDIT (Commit Ownership)
+        # We verify if the majority of the code belongs to one 'Master' dev or is a mix of boilerplate
+        authenticity_percent = 0.0
+        try:
+            repo = git.Repo(temp_dir)
+            commits = list(repo.iter_commits())
+            if commits:
+                authors = {}
+                for c in commits:
+                    authors[c.author.email] = authors.get(c.author.email, 0) + 1
+                
+                # Logic: If top author is < 30%, it's likely a scraped or massive collaborative boilerplate
+                top_author_count = max(authors.values())
+                authenticity_percent = round((top_author_count / len(commits)) * 100, 1)
+        except: authenticity_percent = 50.0
+
+        # 5. THE "AXIOM RULEBOOK" AI PROMPT
+        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1) # Lower temp for strictness
         parser = JsonOutputParser()
-        prompt = ChatPromptTemplate.from_template("Analyze repo {url} with metrics {metrics}. {format_instructions}")
-        ai_res = await (prompt | llm | parser).ainvoke({"url": str(request.url), "metrics": metrics, "format_instructions": parser.get_format_instructions()})
-        return {**ai_res, "complexityScore": metrics["maintainabilityIndex"], "securityAlerts": [], "githubStats": github_stats, "fileTree": {"name": root.name, "type": "directory"}, "rawStats": metrics}
+        
+        # Read the largest logic files for code quality verification
+        code_files = [p for p in root.rglob("*") if p.is_file() and p.suffix in {'.py', '.js', '.ts', '.tsx', '.c', '.cpp'}]
+        top_files = sorted(code_files, key=lambda x: x.stat().st_size, reverse=True)[:3]
+        sample_code = ""
+        for f in top_files:
+            sample_code += f"\n--- FILE: {f.name} ---\n{f.read_text(errors='ignore')[:2000]}"
+
+        prompt = ChatPromptTemplate.from_template("""
+        SYSTEM ROLE:
+        You are the Axiom Forensic Engine (Tier-1 Auditor). Your job is to verify the INTEGRITY of this repository. 
+        You must be ELITE and BRUTALLY STRICT. Do not award high scores to mediocre code.
+
+        INPUT DATA:
+        - Repo URL: {url}
+        - Radon Metrics: {metrics}
+        - Security Level: {security_level} (Calculated Score: {sec_score})
+        - Git Authenticity: {authenticity}%
+        - Code Sample: {sample_code}
+
+        --- SCORING RULES (MANDATORY) ---
+        1. CLEAN CODE (0-100): 
+           - Start at 100. Deduct 10 for every 'Any' type (TS) or lack of type hints (Py).
+           - Deduct 20 if variable names are non-descriptive (e.g., 'a', 'temp', 'data1').
+           - Deduct 15 if functions exceed 50 lines.
+
+        2. MAINTAINABILITY (0-100):
+           - Must align with Radon MI Index. If MI < 20, score cannot exceed 30.
+           - High CC (Cyclomatic Complexity) > 10 in any function results in a max score of 50.
+
+        3. SECURITY PERIMETER (SAFE|WARNING|CRITICAL):
+           - If sec_score < 90, result MUST be WARNING.
+           - If any private key pattern was found, result MUST be CRITICAL.
+
+        4. AUTHENTICITY (0-100):
+           - Use the Git Authenticity ({authenticity}%) as base.
+           - Deduct 30 if the code looks like standard tutorial boilerplate (e.g., ToDo apps, basic Auth templates).
+
+        JSON RESPONSE SCHEMA:
+        {{
+            "cleanCodeIndex": number,
+            "maintainabilityScore": number,
+            "securityLevel": "SAFE" | "WARNING" | "CRITICAL",
+            "authenticityPercent": number,
+            "aiVerdict": "A 3-sentence technical assault/critique of the code quality.",
+            "detailedMetrics": {{
+                "totalLoc": "{loc}",
+                "complexity": {cc},
+                "duplicateCode": number (0-100),
+                "dependencyHealth": number (0-100)
+            }}
+        }}
+        {format_instructions}
+        """)
+
+        ai_res = await (prompt | llm | parser).ainvoke({
+            "url": repo_url,
+            "metrics": metrics,
+            "security_level": security_level,
+            "sec_score": security_score,
+            "authenticity": authenticity_percent,
+            "sample_code": sample_code,
+            "loc": metrics['totalLines'],
+            "cc": metrics['avgComplexity'],
+            "format_instructions": parser.get_format_instructions()
+        })
+
+        return ai_res
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Forensic Audit Failure: {e}")
+        raise HTTPException(status_code=500, detail="Neural analysis failed to establish integrity.")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+
 # --- Update ONLY the parse_resume endpoint in your main.py ---
 # --- Update ONLY the parse_resume endpoint in your main.py ---
 @router.post("/upload-resume")
@@ -464,8 +600,134 @@ async def get_me(email: str, db: Session = Depends(get_db)):
         "resume": db_user.resume_data or {},
         "linkedin": db_user.linkedin_data or {},
         "github": db_user.github_data or {},
+        "leetcode": db_user.leetcode_data or {},
         "legacy": db_user.profile_data or {}
     }
+
+@router.get("/leetcode/{username}")
+async def fetch_leetcode_profile(username: str, email: Optional[str] = None, db: Session = Depends(get_db)):
+    """Fetches LeetCode stats using the official GraphQL API and performs an AI-driven 'Neural Audit'."""
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            # 1. Official LeetCode GraphQL Query
+            gql_url = "https://leetcode.com/graphql/"
+            query = """
+            query getUserProfile($username: String!) {
+              matchedUser(username: $username) {
+                username
+                profile {
+                  ranking
+                  reputation
+                }
+                submitStatsGlobal {
+                  acSubmissionNum {
+                    difficulty
+                    count
+                  }
+                  totalSubmissionNum {
+                    difficulty
+                    count
+                  }
+                }
+              }
+            }
+            """
+            
+            payload = {
+                "query": query,
+                "variables": {"username": username}
+            }
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Referer": "https://leetcode.com",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            }
+
+            resp = await client.post(gql_url, json=payload, headers=headers)
+            
+            if resp.status_code != 200:
+                logger.error(f"LeetCode GQL Error: {resp.text}")
+                raise HTTPException(status_code=resp.status_code, detail="LeetCode Profile sync failed.")
+            
+            data = resp.json()
+            if not data.get("data") or not data["data"].get("matchedUser"):
+                raise HTTPException(status_code=404, detail=f"LeetCode User '{username}' not found.")
+
+            user_data = data["data"]["matchedUser"]
+            stats = user_data["submitStatsGlobal"]
+            
+            # Helper to extract counts
+            def get_count(stat_list, diff):
+                for item in stat_list:
+                    if item["difficulty"] == diff:
+                        return item["count"]
+                return 0
+
+            easy = get_count(stats["acSubmissionNum"], "Easy")
+            medium = get_count(stats["acSubmissionNum"], "Medium")
+            hard = get_count(stats["acSubmissionNum"], "Hard")
+            total = get_count(stats["acSubmissionNum"], "All")
+            
+            total_submissions = get_count(stats["totalSubmissionNum"], "All")
+            acceptance = round((total / total_submissions * 100), 2) if total_submissions > 0 else 0
+            ranking = user_data["profile"].get("ranking", 0)
+
+            # 2. AI AUDIT
+            llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1)
+            parser = JsonOutputParser()
+            
+            audit_prompt = ChatPromptTemplate.from_template(
+                "System: You are an ELITE Competitive Programming Coach. Analyze the following LeetCode sync for {login}.\n"
+                "Stats: {stats}\n\n"
+                "Generate a JSON object with keys:\n"
+                "1. 'algorithmic_iq': 0-100 (matching our calculation or refining it)\n"
+                "2. 'strategic_verdict': A razor-sharp 2-sentence analysis of their algorithmic prowess.\n"
+                "3. 'vectors': {{'Data Structures': 0-100, 'Complexity': 0-100, 'Grit': 0-100}}\n"
+                "4. 'roadmap': [{{'title': 'string', 'description': 'string'}}]\n"
+                "5. 'easy_count': {easy}, 'medium_count': {medium}, 'hard_count': {hard}\n"
+                "{format_instructions}"
+            )
+
+            ai_audit = await (audit_prompt | llm | parser).ainvoke({
+                "login": username,
+                "stats": {
+                    "totalSolved": total,
+                    "ranking": ranking,
+                    "acceptance": acceptance,
+                    "reputation": user_data["profile"].get("reputation")
+                },
+                "easy": easy,
+                "medium": medium,
+                "hard": hard,
+                "format_instructions": parser.get_format_instructions()
+            })
+
+            result = {
+                "username": username,
+                "ranking": ranking,
+                "acceptance": acceptance,
+                "totalSolved": total,
+                "aiAudit": ai_audit 
+            }
+            
+            # Persist to DB if email provided
+            if email:
+                db_user = db.query(DBUser).filter(DBUser.email == email).first()
+                if db_user:
+                    db_user.leetcode_data = result
+                    db.add(db_user)
+                    db.commit()
+                    db.refresh(db_user)
+            
+            return result
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"LeetCode Audit Error: {e}")
+            raise HTTPException(status_code=500, detail="Neural link to LeetCode severed.")
+
 
 # --- Middleware & Mounting ---
 app.include_router(router)

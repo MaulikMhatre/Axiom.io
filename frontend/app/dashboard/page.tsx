@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { 
-  CheckCircle, Activity, Cpu, Fingerprint, GitCommitHorizontal, Star, Briefcase, GraduationCap, Github, Linkedin, FileText, ShieldAlert, Award, Target
+import {
+    CheckCircle, Activity, Zap, Cpu, Fingerprint, GitCommitHorizontal, Star, Briefcase, GraduationCap, Github, Linkedin, FileText, ShieldAlert, Award, Target
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import NeuralBackground from "@/components/ui/flow-field-background";
@@ -24,12 +24,13 @@ export default function DashboardPage() {
                 const dbData = await response.json();
 
                 const legacy = dbData.legacy || {};
-                
+
                 const gitData = (Object.keys(dbData.github || {}).length > 0 ? dbData.github : legacy.github) || {};
                 const resumeData = (Object.keys(dbData.resume || {}).length > 0 ? dbData.resume : legacy.resume) || {};
                 const linkedinData = (Object.keys(dbData.linkedin || {}).length > 0 ? dbData.linkedin : legacy.linkedin) || {};
+                const leetData = dbData.leetcode || {};
+                const algorithmic_iq = leetData.aiAudit?.algorithmic_iq || 0;
 
-                
                 const projects = gitData.topProjects || [];
 
                 // --- 1. GENERATE DYNAMIC 6-MONTH WINDOW ---
@@ -64,14 +65,15 @@ export default function DashboardPage() {
                 const extractScore = (val: any) => parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
                 const R_Score = extractScore(resumeData.atsScore) || 50;
                 const L_Score = extractScore(linkedinData.credibility_score) || 50;
+                const LC_IQ = leetData.aiAudit?.algorithmic_iq || 0;          // LeetCode (Logic Proof)
                 const G_Stars = Number(gitData.totalStars || 0);
                 const G_Impact = Math.min((G_Stars * 15) + (projects.length * 5), 100);
-                
-                const finalScore = Math.round((R_Score * 0.35) + (L_Score * 0.25) + (G_Impact * 0.4)) || 0;
-                
+
+                const finalScore = Math.round((R_Score * 0.35) + (LC_IQ * 0.25) + (L_Score * 0.25) + (G_Impact * 0.4)) || 0;
+
                 let legacyObj = legacy;
                 if (typeof legacy === "string") {
-                    try { legacyObj = JSON.parse(legacy); } catch(e){}
+                    try { legacyObj = JSON.parse(legacy); } catch (e) { }
                 }
                 const dbCgpa = resumeData?.cgpa || legacyObj?.resume?.cgpa || legacyObj?.profile_data?.resume?.cgpa || legacyObj?.cgpa || "N/A";
 
@@ -87,6 +89,7 @@ export default function DashboardPage() {
                     resume: resumeData,
                     linkedin: linkedinData,
                     github: gitData,
+                    leetcode: algorithmic_iq,
                     projects: projects.slice(0, 4)
                 });
             } catch (err) {
@@ -113,7 +116,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="max-w-7xl mx-auto pt-32 px-6 space-y-12 relative z-10">
-                
+
                 {/* --- HEADER IDENTITY --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 backdrop-blur-2xl bg-card text-card-foreground shadow-sm border border-border rounded-[3rem] p-10 flex items-center gap-10 shadow-[0_0_100px_-20px_rgba(99,102,241,0.1)] group">
@@ -129,12 +132,15 @@ export default function DashboardPage() {
                             </div>
                             <p className="text-indigo-600 dark:text-indigo-400 font-mono text-base tracking-[0.4em] uppercase font-extrabold">{data.email}</p>
                             <div className="flex flex-wrap gap-3 pt-2">
+                                <span className="px-4 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-base font-black uppercase tracking-widest rounded-full flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                                    <Zap size={12} /> LeetCode Score: {data.leetcode}%
+                                </span>
                                 <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-base font-black uppercase tracking-widest rounded-full flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-                                   <Activity size={12}/> Analysis_Window: 180D_SYNC
+                                    <Activity size={12} /> Analysis_Window: 180D_SYNC
                                 </span>
                                 {(data.resume?.devType || data.github?.devType) && (
                                     <span className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-base font-black uppercase tracking-widest rounded-full flex items-center gap-2">
-                                        <Cpu size={12}/> {data.resume?.devType || data.github?.devType}
+                                        <Cpu size={12} /> {data.resume?.devType || data.github?.devType}
                                     </span>
                                 )}
                             </div>
@@ -153,16 +159,16 @@ export default function DashboardPage() {
 
                 {/* --- CORE ANALYTICS ROW --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
+
                     {/* Github Radar / Skills */}
                     <div className="backdrop-blur-xl bg-card text-card-foreground shadow-sm border border-border rounded-[2.5rem] p-8 flex flex-col items-center justify-center">
                         <div className="w-full flex justify-between items-center mb-4 justify-center">
-                            <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center justify-center gap-2 w-full"><Cpu size={16}/> Skill Density</span>
+                            <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center justify-center gap-2 w-full"><Cpu size={16} /> Skill Density</span>
                         </div>
                         <div className="w-full h-[250px] -mt-6">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data.radarData}>
-                                    <PolarGrid stroke={isDark ? "#3f3f46" : "#e4e4e7"} strokeDasharray="3 3"/>
+                                    <PolarGrid stroke={isDark ? "#3f3f46" : "#e4e4e7"} strokeDasharray="3 3" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: isDark ? '#d4d4d8' : '#27272a', fontSize: 13, fontWeight: 'bold' }} />
                                     <Radar name="Skills" dataKey="A" stroke="#6366f1" strokeWidth={2} fill="#6366f1" fillOpacity={0.3} />
                                 </RadarChart>
@@ -173,16 +179,16 @@ export default function DashboardPage() {
                     {/* Resume / ATS Overview */}
                     <div className="backdrop-blur-xl bg-card text-card-foreground shadow-sm border border-border rounded-[2.5rem] p-8 space-y-6">
                         <div className="flex justify-between items-center border-b border-white dark:border-black shadow-lg dark:shadow-none/5 dark:border-white/5 pb-4">
-                            <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center gap-2"><FileText size={16}/> ATS Telemetry</span>
+                            <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center gap-2"><FileText size={16} /> ATS Telemetry</span>
                             <span className="text-4xl font-black text-foreground italic">{data.resume?.atsScore || 0}<span className="text-base font-extrabold text-zinc-800 dark:text-zinc-300">ATS</span></span>
                         </div>
-                        
+
                         <div className="space-y-4">
                             {/* <div className="flex justify-between items-center">
                                 <span className="text-base font-extrabold text-zinc-800 dark:text-zinc-300">Recorded CGPA</span>
                                 <span className="text-base font-black text-foreground px-4 py-1.5 bg-zinc-100/50 dark:bg-white/5 rounded-lg border border-border">{data.cgpa}</span>
                             </div> */}
-                            
+
                             <div className="w-full bg-zinc-100/50 dark:bg-white/5 rounded-xl p-5">
                                 <span className="text-base font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-300 block mb-4">Top Hard Skills</span>
                                 <div className="flex flex-wrap gap-3">
@@ -199,10 +205,10 @@ export default function DashboardPage() {
                     {/* LinkedIn / Trust Overview */}
                     <div className="backdrop-blur-xl bg-card text-card-foreground shadow-sm border border-border rounded-[2.5rem] p-8 space-y-6">
                         <div className="flex justify-between items-center border-b border-white dark:border-black shadow-lg dark:shadow-none/5 dark:border-white/5 pb-4">
-                            <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center gap-2"><Linkedin size={16}/> Trust Vector</span>
+                            <span className="text-base font-black uppercase tracking-[0.3em] text-zinc-800 dark:text-zinc-300 flex items-center gap-2"><Linkedin size={16} /> Trust Vector</span>
                             <span className="text-4xl font-black text-foreground italic">{data.linkedin?.credibility_score || 0}<span className="text-base font-extrabold text-zinc-800 dark:text-zinc-300">CRD</span></span>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div className="w-full bg-zinc-100/50 dark:bg-white/5 rounded-xl p-5">
                                 <span className="text-base font-black uppercase tracking-[0.2em] text-zinc-800 dark:text-zinc-300 block mb-4">Verification Tags</span>
@@ -230,7 +236,7 @@ export default function DashboardPage() {
                             </h3>
                             <div className="px-3 py-1 bg-zinc-100/50 dark:bg-white/5 text-zinc-800 dark:text-zinc-300 text-base font-mono border border-border rounded uppercase tracking-widest italic">Phase_III_Audit</div>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full pb-4">
                             {[
                                 { title: 'Institutional Genesis', icon: <GraduationCap size={20} />, status: 'COMPLETE', desc: data.displayCollege || 'D.J. Sanghvi COE', color: 'indigo' },
@@ -256,11 +262,11 @@ export default function DashboardPage() {
 
                     <div className="lg:col-span-4 space-y-6 flex flex-col justify-center">
                         <div className="backdrop-blur-xl bg-white border-zinc-200 shadow-sm dark:bg-white/[0.01] border dark:border-white/5 rounded-[2.5rem] p-8 space-y-2 group hover:border-indigo-500/30 transition-all">
-                            <span className="text-base font-black text-zinc-800 dark:text-zinc-300 font-bold uppercase tracking-widest flex items-center gap-2"><Github size={14}/> Impact Radius</span>
+                            <span className="text-base font-black text-zinc-800 dark:text-zinc-300 font-bold uppercase tracking-widest flex items-center gap-2"><Github size={14} /> Impact Radius</span>
                             <div className="text-5xl font-black text-foreground italic">{data.github?.totalStars || 0} <span className="text-base font-extrabold text-zinc-800 dark:text-zinc-300 font-bold uppercase">Stars</span></div>
                         </div>
                         <div className="backdrop-blur-xl bg-white border-zinc-200 shadow-sm dark:bg-white/[0.01] border dark:border-white/5 rounded-[2.5rem] p-8 space-y-2 group hover:border-purple-500/30 transition-all">
-                            <span className="text-base font-black text-zinc-800 dark:text-zinc-300 font-bold uppercase tracking-widest flex items-center gap-2"><Award size={14}/> Major Achievements</span>
+                            <span className="text-base font-black text-zinc-800 dark:text-zinc-300 font-bold uppercase tracking-widest flex items-center gap-2"><Award size={14} /> Major Achievements</span>
                             <div className="text-5xl font-black text-foreground italic">{data.resume?.achievements?.length || data.resume?.majorMilestones?.length || 0} <span className="text-base font-extrabold text-zinc-800 dark:text-zinc-300 font-bold uppercase">Recognitions</span></div>
                         </div>
                     </div>
@@ -269,11 +275,11 @@ export default function DashboardPage() {
                 {/* --- INTELLIGENCE LOGS (Actionable & Flaws) --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="backdrop-blur-2xl bg-indigo-50/50 dark:bg-indigo-500/[0.02] border border-indigo-500/10 rounded-[3rem] p-10">
-                        <h3 className="text-base font-black uppercase tracking-[0.4em] text-indigo-600 dark:text-indigo-400 mb-8 flex items-center gap-3"><Activity size={16}/> Actionable Vectors</h3>
+                        <h3 className="text-base font-black uppercase tracking-[0.4em] text-indigo-600 dark:text-indigo-400 mb-8 flex items-center gap-3"><Activity size={16} /> Actionable Vectors</h3>
                         <ul className="space-y-4">
                             {(data.resume?.actionableFixes || []).slice(0, 3).map((fix: string, idx: number) => (
                                 <li key={idx} className="flex gap-4 items-start">
-                                    <div className="mt-1 p-1 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded"><Activity size={12}/></div>
+                                    <div className="mt-1 p-1 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded"><Activity size={12} /></div>
                                     <p className="text-base text-zinc-800 dark:text-zinc-300 font-bold leading-relaxed">{fix}</p>
                                 </li>
                             ))}
@@ -283,11 +289,11 @@ export default function DashboardPage() {
                         </ul>
                     </div>
                     <div className="backdrop-blur-2xl bg-rose-50 dark:bg-rose-500/[0.02] border border-rose-500/10 rounded-[3rem] p-10">
-                        <h3 className="text-base font-black uppercase tracking-[0.4em] text-rose-600 dark:text-rose-400 mb-8 flex items-center gap-3"><ShieldAlert size={16}/> Critical Vulnerabilities</h3>
+                        <h3 className="text-base font-black uppercase tracking-[0.4em] text-rose-600 dark:text-rose-400 mb-8 flex items-center gap-3"><ShieldAlert size={16} /> Critical Vulnerabilities</h3>
                         <ul className="space-y-4">
                             {(data.resume?.criticalFlaws || []).slice(0, 3).map((flaw: string, idx: number) => (
                                 <li key={idx} className="flex gap-4 items-start">
-                                    <div className="mt-1 p-1 bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded"><ShieldAlert size={12}/></div>
+                                    <div className="mt-1 p-1 bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded"><ShieldAlert size={12} /></div>
                                     <p className="text-base text-zinc-800 dark:text-zinc-300 font-bold leading-relaxed">{flaw}</p>
                                 </li>
                             ))}
