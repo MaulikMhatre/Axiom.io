@@ -35,6 +35,7 @@ export default function LoginPage() {
 
       // Success! Store user info and redirect
       localStorage.setItem('user', data.username);
+      localStorage.setItem('user_email', email);
       window.location.href = '/dashboard'; 
     } catch (err: any) {
       setError(err.message);

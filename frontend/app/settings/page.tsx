@@ -49,7 +49,8 @@ export default function SettingsPage() {
         if (!github) return;
         setIsSyncing(true);
         try {
-            const resp = await fetch(`http://localhost:8000/api/github/${github}`);
+            const userEmail = localStorage.getItem('user_email') || '';
+            const resp = await fetch(`http://localhost:8000/api/github/${github}?email=${userEmail}`);
             const data = await resp.json();
             if (typeof window !== 'undefined') {
                 localStorage.setItem('gh_username', github);
@@ -87,6 +88,7 @@ export default function SettingsPage() {
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('email', localStorage.getItem('user_email') || '');
 
         try {
             const response = await fetch('http://localhost:8000/api/upload-resume', {
@@ -128,6 +130,7 @@ export default function SettingsPage() {
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('email', localStorage.getItem('user_email') || '');
 
         try {
             const response = await fetch('http://localhost:8000/api/upload-linkedin', {

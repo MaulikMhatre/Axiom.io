@@ -1,9 +1,10 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { 
-  CheckCircle, Activity, Cpu, Fingerprint, Zap, Loader2, GitCommitHorizontal, Star, Trophy, Folder
+  CheckCircle, Activity, Cpu, Fingerprint, GitCommitHorizontal, Star, Briefcase, GraduationCap, Github, Linkedin, FileText, ShieldAlert, Award
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import NeuralBackground from "@/components/ui/flow-field-background";
 
 export default function DashboardPage() {
     const [data, setData] = useState<any>(null);
@@ -11,118 +12,220 @@ export default function DashboardPage() {
 
     useEffect(() => {
         setMounted(true);
-        if (typeof window !== 'undefined') {
-            const gitRaw = localStorage.getItem('user_profile');
-            const resumeRaw = localStorage.getItem('user_resume_data');
-            const regRaw = localStorage.getItem('user_registration');
-            
-            const gitData = gitRaw ? JSON.parse(gitRaw) : {};
-            const resumeData = resumeRaw ? JSON.parse(resumeRaw) : {};
-            const regData = regRaw ? JSON.parse(regRaw) : {};
-            const projects = gitData.topProjects || [];
+        const fetchData = async () => {
+            const userEmail = localStorage.getItem('user_email');
+            if (!userEmail) return;
 
-            // --- 1. GENERATE DYNAMIC 6-MONTH WINDOW (Nov 2025 - Apr 2026) ---
-            const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            const now = new Date(); // April 2026
-            const history: any[] = [];
+            try {
+                const response = await fetch(`http://localhost:8000/api/me?email=${userEmail}`);
+                const dbData = await response.json();
 
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                history.push({
-                    month: monthsShort[d.getMonth()],
-                    year: d.getFullYear(),
-                    commits: 0,
-                });
-            }
+                const legacy = dbData.legacy || {};
+                
+                const gitData = (Object.keys(dbData.github || {}).length > 0 ? dbData.github : legacy.github) || {};
+                const resumeData = (Object.keys(dbData.resume || {}).length > 0 ? dbData.resume : legacy.resume) || {};
+                const linkedinData = (Object.keys(dbData.linkedin || {}).length > 0 ? dbData.linkedin : legacy.linkedin) || {};
 
-            // --- 2. MAP COMMITS TO BUCKETS ---
-            projects.forEach((p: any) => {
-                if (p.last_updated) {
-                    const pDate = new Date(p.last_updated);
-                    if (!isNaN(pDate.getTime())) {
-                        const pMonth = monthsShort[pDate.getMonth()];
-                        const pYear = pDate.getFullYear();
+                
+                const projects = gitData.topProjects || [];
 
-                        const bucket = history.find(m => m.month === pMonth && m.year === pYear);
-                        if (bucket) {
-                            bucket.commits += (Number(p.personal_commits) || 0);
+                // --- 1. GENERATE DYNAMIC 6-MONTH WINDOW ---
+                const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const now = new Date();
+                const history: any[] = [];
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    history.push({ month: monthsShort[d.getMonth()], year: d.getFullYear(), commits: 0 });
+                }
+
+                projects.forEach((p: any) => {
+                    if (p.last_updated) {
+                        const pDate = new Date(p.last_updated);
+                        if (!isNaN(pDate.getTime())) {
+                            const bucket = history.find(m => m.month === monthsShort[pDate.getMonth()] && m.year === pDate.getFullYear());
+                            if (bucket) bucket.commits += (Number(p.personal_commits) || 0);
                         }
                     }
+                });
+
+                // --- 2. COMPOSE SKILL DENSITY FOR RADAR ---
+                // E.g. { "Backend": 90, "Frontend": 70 } -> [{ subject: 'Backend', A: 90, fullMark: 100 }]
+                const skillDensityRaw = resumeData.skillDensity || { "Logic": 50, "Code": 50, "Design": 50 };
+                const radarData = Object.keys(skillDensityRaw).map(key => ({
+                    subject: key,
+                    A: skillDensityRaw[key],
+                    fullMark: 100
+                }));
+
+                // --- 3. NEURAL SCORE ENGINE ---
+                const extractScore = (val: any) => parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
+                const R_Score = extractScore(resumeData.atsScore) || 50;
+                const L_Score = extractScore(linkedinData.credibility_score) || 50;
+                const G_Stars = Number(gitData.totalStars || 0);
+                const G_Impact = Math.min((G_Stars * 15) + (projects.length * 5), 100);
+                
+                const finalScore = Math.round((R_Score * 0.35) + (L_Score * 0.25) + (G_Impact * 0.4)) || 0;
+                
+                let legacyObj = legacy;
+                if (typeof legacy === "string") {
+                    try { legacyObj = JSON.parse(legacy); } catch(e){}
                 }
-            });
+                const dbCgpa = resumeData?.cgpa || legacyObj?.resume?.cgpa || legacyObj?.profile_data?.resume?.cgpa || legacyObj?.cgpa || "N/A";
 
-            // --- 3. BRUTAL INTEGRITY ALGORITHM ---
-            const extractScore = (val: any) => {
-                if (!val) return 0;
-                return parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
-            };
+                setData({
+                    ready: true,
+                    displayName: resumeData.name || linkedinData.name || gitData.name || "Axiom User",
+                    email: userEmail,
+                    cgpa: dbCgpa,
+                    avatarUrl: gitData.avatarUrl || "https://github.com/github.png",
+                    neuralScore: finalScore,
+                    momentum: history,
+                    radarData: radarData,
+                    resume: resumeData,
+                    linkedin: linkedinData,
+                    github: gitData,
+                    projects: projects.slice(0, 4)
+                });
+            } catch (err) {
+                console.error("Failed to fetch ME endpoint:", err);
+            }
+        };
 
-            const R_Score = extractScore(resumeData.atsScore || resumeData.credibility_score);
-            const G_Stars = Number(gitData.totalStars || 0);
-            const G_Impact = Math.min((G_Stars * 12) + (gitData.publicRepos * 2), 100);
-            const totalCommits = projects.reduce((acc: number, curr: any) => acc + (Number(curr.personal_commits) || 0), 0);
-            
-            // Formula: 40% Resume, 40% GitHub Social, 20% Commit Consistency
-            const finalScore = Math.round((R_Score * 0.4) + (G_Impact * 0.4) + (Math.min(totalCommits, 100) * 0.2)) || 88;
-
-            setData({
-                ...gitData,
-                displayName: resumeData.name || regData.name || gitData.name || "Maulik Mhatre",
-                displayCollege: regData.college || "D.J. Sanghvi College of Engineering",
-                neuralScore: finalScore,
-                momentum: history,
-                milestones: resumeData.majorMilestones || [],
-                topProjects: projects.slice(0, 4)
-            });
-        }
+        fetchData();
     }, []);
 
-    if (!mounted || !data) return (
-        <div className="h-screen bg-[#050505] flex items-center justify-center">
-            <Loader2 className="animate-spin text-violet-500" size={40} />
+    if (!mounted || !data?.ready) return (
+        <div className="h-screen bg-black flex flex-col items-center justify-center space-y-4">
+            <Activity className="animate-pulse text-indigo-500" size={60} />
+            <p className="text-indigo-400 text-xs font-black uppercase tracking-[0.4em] animate-pulse">Aggregating Global Vectors</p>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-[#020203] text-zinc-100 pb-40 selection:bg-violet-500/30">
-            <div className="max-w-7xl mx-auto pt-32 px-6 space-y-12">
+        <div className="relative min-h-screen bg-black text-zinc-100 pb-40 overflow-hidden font-sans selection:bg-indigo-500/30">
+            {/* Background */}
+            <div className="fixed inset-0 -z-10 bg-black">
+                <NeuralBackground color="#6366f1" trailOpacity={0.1} particleCount={400} speed={0.5} scale={1} />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,transparent_0%,rgba(0,0,0,0.9)_100%)] pointer-events-none" />
+            </div>
+
+            <div className="max-w-7xl mx-auto pt-32 px-6 space-y-12 relative z-10">
                 
-                {/* Identity Header */}
+                {/* --- HEADER IDENTITY --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 bg-zinc-900/10 border border-zinc-800 rounded-[3rem] p-10 flex items-center gap-10 backdrop-blur-3xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 group-hover:opacity-[0.06] transition-opacity">
-                            <Fingerprint size={250} />
+                    <div className="lg:col-span-2 backdrop-blur-2xl bg-white/[0.02] border border-white/5 rounded-[3rem] p-10 flex items-center gap-10 shadow-[0_0_100px_-20px_rgba(99,102,241,0.1)] group">
+                        <div className="relative w-32 h-32 flex-shrink-0">
+                            <img src={data.avatarUrl} className="w-full h-full rounded-full border border-indigo-500/30 z-10 grayscale group-hover:grayscale-0 transition-all duration-700 object-cover" alt="Avatar" />
+                            <div className="absolute -inset-4 border border-indigo-500/20 rounded-full animate-[spin_10s_linear_infinite]" />
+                            <div className="absolute -inset-8 border border-purple-500/10 rounded-full animate-[spin_15s_linear_infinite_reverse]" />
                         </div>
-                        <img src={data.avatarUrl} className="w-32 h-32 rounded-full border-4 border-zinc-800 z-10 grayscale hover:grayscale-0 transition-all duration-700" alt="Avatar" />
-                        <div className="z-10 space-y-2">
-                            <h1 className="text-6xl font-black italic uppercase tracking-tighter text-white leading-none">{data.displayName}</h1>
-                            <p className="text-zinc-500 font-mono text-xs tracking-[0.4em] uppercase font-bold">{data.displayCollege}</p>
-                            <div className="flex gap-3 pt-4">
-                                <span className="px-4 py-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center gap-2">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-5xl lg:text-6xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-500 leading-none">{data.displayName}</h1>
+                                <CheckCircle className="text-indigo-500" size={28} />
+                            </div>
+                            <p className="text-indigo-400 font-mono text-xs tracking-[0.4em] uppercase font-bold">{data.email}</p>
+                            <div className="flex flex-wrap gap-3 pt-2">
+                                <span className="px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
                                    <Activity size={12}/> Analysis_Window: 180D_SYNC
                                 </span>
+                                {(data.resume?.devType || data.github?.devType) && (
+                                    <span className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-2">
+                                        <Cpu size={12}/> {data.resume?.devType || data.github?.devType}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white text-black rounded-[3rem] p-10 flex flex-col justify-between relative overflow-hidden group shadow-[0_20px_50px_rgba(255,255,255,0.05)]">
-                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-black/40 z-10">Brutal integrity Score</span>
-                        <div className="z-10 flex items-baseline gap-2">
-                            <span className="text-9xl font-black italic tracking-tighter leading-none">{data.neuralScore}</span>
-                            <span className="text-2xl font-bold text-black/20 italic">/100</span>
+                    <div className="backdrop-blur-2xl bg-white/[0.02] border border-white/5 rounded-[3rem] p-10 flex flex-col justify-between relative overflow-hidden group shadow-[0_0_100px_-20px_rgba(99,102,241,0.1)]">
+                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 z-10">Axiom Neural Score</span>
+                        <div className="z-10 flex items-baseline gap-2 mt-4">
+                            <span className="text-8xl lg:text-9xl font-black italic tracking-tighter leading-none text-white">{data.neuralScore}</span>
+                            <span className="text-xl lg:text-2xl font-bold text-zinc-700 italic">/100</span>
                         </div>
-                        <Cpu className="absolute -bottom-10 -right-10 opacity-5 group-hover:scale-110 transition-transform duration-1000" size={250} />
+                        <Fingerprint className="absolute -bottom-10 -right-10 text-indigo-500/10 group-hover:text-indigo-500/20 group-hover:scale-110 transition-all duration-1000" size={250} strokeWidth={0.5} />
                     </div>
                 </div>
 
-                {/* --- 6-MONTH GRIND GRAPH --- */}
+                {/* --- CORE ANALYTICS ROW --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    {/* Github Radar / Skills */}
+                    <div className="backdrop-blur-xl bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 flex flex-col items-center justify-center">
+                        <div className="w-full flex justify-between items-center mb-4 justify-center">
+                            <span className="text-xs font-black uppercase tracking-[0.3em] text-zinc-400 flex items-center justify-center gap-2 w-full"><Cpu size={16}/> Skill Density</span>
+                        </div>
+                        <div className="w-full h-[250px] -mt-6">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data.radarData}>
+                                    <PolarGrid stroke="#3f3f46" strokeDasharray="3 3"/>
+                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#d4d4d8', fontSize: 13, fontWeight: 'bold' }} />
+                                    <Radar name="Skills" dataKey="A" stroke="#6366f1" strokeWidth={2} fill="#6366f1" fillOpacity={0.3} />
+                                </RadarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Resume / ATS Overview */}
+                    <div className="backdrop-blur-xl bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
+                        <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                            <span className="text-xs font-black uppercase tracking-[0.3em] text-zinc-400 flex items-center gap-2"><FileText size={16}/> ATS Telemetry</span>
+                            <span className="text-4xl font-black italic">{data.resume?.atsScore || 0}<span className="text-base font-bold text-zinc-600">ATS</span></span>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {/* <div className="flex justify-between items-center">
+                                <span className="text-sm font-bold text-zinc-400">Recorded CGPA</span>
+                                <span className="text-base font-black text-white px-4 py-1.5 bg-white/5 rounded-lg border border-white/10">{data.cgpa}</span>
+                            </div> */}
+                            
+                            <div className="w-full bg-white/5 rounded-xl p-5">
+                                <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 block mb-4">Top Hard Skills</span>
+                                <div className="flex flex-wrap gap-3">
+                                    {(data.resume?.skills || []).slice(0, 5).map((s: any, i: number) => (
+                                        <span key={i} className="text-xs font-bold px-4 py-2 bg-indigo-500/20 text-indigo-200 rounded-md border border-indigo-500/30">
+                                            {s.name} ({s.level})
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* LinkedIn / Trust Overview */}
+                    <div className="backdrop-blur-xl bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
+                        <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                            <span className="text-xs font-black uppercase tracking-[0.3em] text-zinc-400 flex items-center gap-2"><Linkedin size={16}/> Trust Vector</span>
+                            <span className="text-4xl font-black italic">{data.linkedin?.credibility_score || 0}<span className="text-base font-bold text-zinc-600">CRD</span></span>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div className="w-full bg-white/5 rounded-xl p-5">
+                                <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 block mb-4">Verification Tags</span>
+                                <div className="flex flex-wrap gap-3">
+                                    {(data.linkedin?.verification_tags || []).slice(0, 4).map((tag: string, i: number) => (
+                                        <span key={i} className="text-xs font-bold px-4 py-2 bg-emerald-500/10 text-emerald-300 rounded-md border border-emerald-500/20 flex items-center gap-2">
+                                            <CheckCircle size={14} /> {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="text-sm text-zinc-300 font-medium leading-relaxed italic border-l-2 border-indigo-500/50 pl-4 py-2">
+                                "{data.linkedin?.headline || 'No verified professional headline detected.'}"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- COMMIT PULSE & GITHUB --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-8 bg-zinc-900/10 border border-zinc-800 rounded-[3.5rem] p-10 flex flex-col">
+                    <div className="lg:col-span-8 backdrop-blur-2xl bg-white/[0.01] border border-white/5 rounded-[3rem] p-10 flex flex-col">
                         <div className="flex justify-between items-center mb-10 px-2">
-                            <h3 className="text-xs font-black uppercase tracking-[0.5em] text-zinc-500 flex items-center gap-3 italic">
-                                <GitCommitHorizontal size={18} className="text-violet-500" /> Neural Contribution Pulse
+                            <h3 className="text-xs font-black uppercase tracking-[0.5em] text-zinc-500 flex items-center gap-3">
+                                <GitCommitHorizontal size={18} className="text-indigo-500" /> Neural Contribution Pulse
                             </h3>
-                            <div className="px-3 py-1 bg-zinc-800 text-zinc-500 text-[9px] font-mono border border-zinc-700 rounded uppercase tracking-widest">Time_Series_Audit</div>
+                            <div className="px-3 py-1 bg-white/5 text-zinc-400 text-[9px] font-mono border border-white/10 rounded uppercase tracking-widest">Time_Series_Audit</div>
                         </div>
                         
                         <div className="w-full h-[320px]">
@@ -130,85 +233,121 @@ export default function DashboardPage() {
                                 <AreaChart data={data.momentum} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorCommits" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/>
-                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.5}/>
+                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} opacity={0.2} />
-                                    <XAxis 
-                                        dataKey="month" 
-                                        stroke="#52525b" 
-                                        fontSize={12} 
-                                        fontWeight="900" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        dy={10}
-                                    />
-                                    <YAxis stroke="#52525b" fontSize={10} axisLine={false} tickLine={false} domain={[0, 'auto']} />
-                                    
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} opacity={0.4} />
+                                    <XAxis dataKey="month" stroke="#71717a" fontSize={12} fontWeight="bold" axisLine={false} tickLine={false} dy={10} />
+                                    <YAxis stroke="#71717a" fontSize={10} axisLine={false} tickLine={false} domain={[0, 'auto']} />
                                     <Tooltip 
-                                        contentStyle={{ 
-                                            backgroundColor: '#09090b', 
-                                            border: '1px solid #27272a', 
-                                            borderRadius: '12px',
-                                            paddingLeft: '12px',
-                                            paddingRight: '12px',
-                                            paddingTop: '8px',
-                                            paddingBottom: '8px'
-                                        }}
-                                        itemStyle={{ 
-                                            color: '#8b5cf6', 
-                                            fontSize: '12px', 
-                                            fontWeight: '900',
-                                            margin: 0
-                                        }}
-                                        cursor={{ stroke: '#8b5cf6', strokeWidth: 1 }}
+                                        contentStyle={{ backgroundColor: '#000', border: '1px solid #27272a', borderRadius: '12px' }}
+                                        itemStyle={{ color: '#818cf8', fontSize: '12px', fontWeight: '900' }}
+                                        cursor={{ stroke: '#6366f1', strokeWidth: 1 }}
                                     />
-                                    
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="commits" 
-                                        stroke="#8b5cf6" 
-                                        strokeWidth={4} 
-                                        fillOpacity={1} 
-                                        fill="url(#colorCommits)" 
-                                        animationDuration={1500}
-                                    />
+                                    <Area type="monotone" dataKey="commits" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorCommits)" />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-zinc-900/10 border border-zinc-800 rounded-[2.5rem] p-8 group hover:border-violet-500/30 transition-all shadow-xl">
-                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Impact Radius</span>
-                            <div className="text-5xl font-black text-white italic">{data.totalStars || 0} <span className="text-sm font-mono text-zinc-800 uppercase">Stars</span></div>
+                    <div className="lg:col-span-4 space-y-6 flex flex-col justify-center">
+                        <div className="backdrop-blur-xl bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-8 space-y-2 group hover:border-indigo-500/30 transition-all">
+                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2"><Github size={14}/> Impact Radius</span>
+                            <div className="text-5xl font-black text-zinc-100 italic">{data.github?.totalStars || 0} <span className="text-sm font-bold text-zinc-700 uppercase">Stars</span></div>
                         </div>
-                        <div className="bg-zinc-900/10 border border-zinc-800 rounded-[2.5rem] p-8 group hover:border-emerald-500/30 transition-all shadow-xl">
-                            <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Authenticated Nodes</span>
-                            <div className="text-5xl font-black text-white italic">{data.milestones.length || 0} <span className="text-sm font-mono text-zinc-800 uppercase">Tasks</span></div>
+                        <div className="backdrop-blur-xl bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-8 space-y-2 group hover:border-purple-500/30 transition-all">
+                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2"><Award size={14}/> Major Achievements</span>
+                            <div className="text-5xl font-black text-zinc-100 italic">{data.resume?.achievements?.length || data.resume?.majorMilestones?.length || 0} <span className="text-sm font-bold text-zinc-700 uppercase">Recognitions</span></div>
                         </div>
                     </div>
                 </div>
 
-                {/* Bottom Repo Log */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-6">
-                    {data.topProjects.map((p: any, i: number) => (
-                        <div key={i} className="p-8 bg-black/40 border border-zinc-900 rounded-[2.5rem] hover:border-violet-500/40 transition-all group">
-                            <div className="text-[8px] font-mono text-zinc-700 mb-3 uppercase font-bold tracking-widest">Ref_Node: 0x{i}F</div>
-                            <h4 className="text-lg font-black text-zinc-100 uppercase italic tracking-tighter mb-4 truncate group-hover:text-violet-400 transition-colors leading-none">{p.name}</h4>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-zinc-600 font-mono uppercase">{p.language || 'CORE'}</span>
-                                <div className="flex items-center gap-2">
-                                    <GitCommitHorizontal size={14} className="text-violet-500" />
-                                    <span className="text-xs font-black text-white">{p.personal_commits || 0}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                {/* --- INTELLIGENCE LOGS (Actionable & Flaws) --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="backdrop-blur-2xl bg-indigo-500/[0.02] border border-indigo-500/10 rounded-[3rem] p-10">
+                        <h3 className="text-xs font-black uppercase tracking-[0.4em] text-indigo-400 mb-8 flex items-center gap-3"><Activity size={16}/> Actionable Vectors</h3>
+                        <ul className="space-y-4">
+                            {(data.resume?.actionableFixes || []).slice(0, 3).map((fix: string, idx: number) => (
+                                <li key={idx} className="flex gap-4 items-start">
+                                    <div className="mt-1 p-1 bg-indigo-500/20 text-indigo-400 rounded"><Activity size={12}/></div>
+                                    <p className="text-sm text-zinc-300 font-medium leading-relaxed">{fix}</p>
+                                </li>
+                            ))}
+                            {(!data.resume?.actionableFixes || data.resume.actionableFixes.length === 0) && (
+                                <p className="text-xs text-zinc-600 font-mono">No actionable intelligence available. Upload resume for analysis.</p>
+                            )}
+                        </ul>
+                    </div>
+                    <div className="backdrop-blur-2xl bg-rose-500/[0.02] border border-rose-500/10 rounded-[3rem] p-10">
+                        <h3 className="text-xs font-black uppercase tracking-[0.4em] text-rose-400 mb-8 flex items-center gap-3"><ShieldAlert size={16}/> Critical Vulnerabilities</h3>
+                        <ul className="space-y-4">
+                            {(data.resume?.criticalFlaws || []).slice(0, 3).map((flaw: string, idx: number) => (
+                                <li key={idx} className="flex gap-4 items-start">
+                                    <div className="mt-1 p-1 bg-rose-500/20 text-rose-400 rounded"><ShieldAlert size={12}/></div>
+                                    <p className="text-sm text-zinc-300 font-medium leading-relaxed">{flaw}</p>
+                                </li>
+                            ))}
+                            {(!data.resume?.criticalFlaws || data.resume.criticalFlaws.length === 0) && (
+                                <p className="text-xs text-zinc-600 font-mono">No critical flaws detected.</p>
+                            )}
+                        </ul>
+                    </div>
                 </div>
 
+                {/* --- BOTTOM GITHUB PROJECTS LIST --- */}
+                {data.projects.length > 0 && (
+                    <div className="pt-8">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-500 mb-6 text-center italic">Verified Project Nodes</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {data.projects.map((p: any, i: number) => (
+                                <div key={i} className="p-8 backdrop-blur-xl bg-white/[0.02] border border-white/5 rounded-[2.5rem] hover:border-indigo-500/40 transition-all group shadow-xl">
+                                    <div className="text-[8px] font-mono text-zinc-600 mb-4 uppercase font-bold tracking-widest">Ref_Node: 0x{i + 1}F</div>
+                                    <h4 className="text-lg font-black text-white uppercase italic tracking-tight mb-4 truncate group-hover:text-indigo-400 transition-colors leading-none">{p.name}</h4>
+                                    <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                                        <span className="text-[10px] font-bold text-zinc-500 font-mono uppercase bg-white/5 px-2 py-1 rounded">{p.language || 'CORE'}</span>
+                                        <div className="flex items-center gap-2">
+                                            <GitCommitHorizontal size={14} className="text-indigo-500" />
+                                            <span className="text-xs font-black text-white">{p.personal_commits || 0}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

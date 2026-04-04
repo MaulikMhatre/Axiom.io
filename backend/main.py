@@ -25,11 +25,11 @@ from radon.raw import analyze as raw_analyze
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from passlib.context import CryptContext
-from fastapi import Depends
+from fastapi import Depends, Form
 
 # --- DATABASE CONFIG ---
 SQLALCHEMY_DATABASE_URL = "sqlite:///./axiom_users.db"
@@ -98,6 +98,10 @@ class DBUser(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    profile_data = Column(JSON, default={})
+    resume_data = Column(JSON, default={})
+    linkedin_data = Column(JSON, default={})
+    github_data = Column(JSON, default={})
 
 # Create the .db file and tables
 Base.metadata.create_all(bind=engine)
@@ -165,14 +169,13 @@ class AnalysisService:
             "fileCount": len(list(dir_path.rglob("*")))
         }
 
-# --- Initialize App and Router ---
-app = FastAPI(title="RepoLens Pro", version="2.0.2")
+# --- Initialize Router ---
 router = APIRouter(prefix="/api")
 
 # --- Endpoints ---
 
 @router.post("/upload-linkedin")
-async def parse_linkedin(file: UploadFile = File(...)):
+async def parse_linkedin(email: Optional[str] = Form(None), file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Must be a PDF file")
     try:
@@ -188,6 +191,11 @@ async def parse_linkedin(file: UploadFile = File(...)):
       "credibility_score": number (0-100),
       "name": "string",
       "headline": "string",
+      "about": "string",
+      "experience": [{{"company": "string", "role": "string", "duration": "string"}}],
+      "education": [{{"institution": "string", "degree": "string"}}],
+      "skills": ["string"],
+      "certifications": ["string"],
       "verification_tags": ["string"],
       "brutal_feedback": ["string"],
       "roadmap": [{{ "title": "string", "description": "string" }}]
@@ -196,7 +204,18 @@ async def parse_linkedin(file: UploadFile = File(...)):
     LinkedIn Profile PDF Text: {text}
     """)
         chain = prompt | llm | JsonOutputParser()
-        return await chain.ainvoke({"text": text[:12000]})
+        result = await chain.ainvoke({"text": text[:12000]})
+        
+        # Persist to DB
+        if email:
+            db_user = db.query(DBUser).filter(DBUser.email == email).first()
+            if db_user:
+                db_user.linkedin_data = result
+                db.add(db_user)
+                db.commit()
+                db.refresh(db_user)
+            
+        return result
     except Exception as e:
         logger.error(f"LinkedIn Parsing Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to audit LinkedIn PDF")
@@ -240,7 +259,7 @@ async def login(user: UserLogin, db: Session = Depends(get_db)):
     }
 
 @router.get("/github/{username}")
-async def fetch_github_profile(username: str):
+async def fetch_github_profile(username: str, email: Optional[str] = None, db: Session = Depends(get_db)):
     """Fetches developer DNA by isolating individual 'Hard Work' vs group noise."""
     headers = {"Authorization": f"token {Config.GITHUB_TOKEN}"} if Config.GITHUB_TOKEN else {}
     
@@ -311,6 +330,8 @@ async def fetch_github_profile(username: str):
                 "2. 'strategicVerdict': A sharp 2-sentence analysis of their personal coding 'grind' and expertise.\n"
                 "3. 'milestones': 2 upcoming technical goals.\n"
                 "4. 'devType': A title based on their most committed technologies.\n"
+                "5. 'topLanguages': ['Python', 'Rust', 'JavaScript']\n"
+                "6. 'recentAchievements': ['Contributed to massive open source project', 'Published popular library']\n"
                 "{format_instructions}"
             )
 
@@ -320,7 +341,7 @@ async def fetch_github_profile(username: str):
                 "format_instructions": parser.get_format_instructions()
             })
 
-            return {
+            result = {
                 "name": user_data.get("name", username),
                 "avatarUrl": user_data.get("avatar_url", ""),
                 "publicRepos": user_data.get("public_repos", 0),
@@ -328,6 +349,17 @@ async def fetch_github_profile(username: str):
                 "topProjects": top_5_repos,
                 "aiAudit": ai_audit 
             }
+            
+            # Persist to DB if email provided
+            if email:
+                db_user = db.query(DBUser).filter(DBUser.email == email).first()
+                if db_user:
+                    db_user.github_data = result
+                    db.add(db_user)
+                    db.commit()
+                    db.refresh(db_user)
+            
+            return result
             
         except Exception as e:
             logger.error(f"Audit Error: {e}")
@@ -353,7 +385,7 @@ async def analyze_repo(request: RepoRequest):
 # --- Update ONLY the parse_resume endpoint in your main.py ---
 # --- Update ONLY the parse_resume endpoint in your main.py ---
 @router.post("/upload-resume")
-async def parse_resume(file: UploadFile = File(...)):
+async def parse_resume(email: Optional[str] = Form(None), file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Must be a PDF file")
     
@@ -376,13 +408,15 @@ async def parse_resume(file: UploadFile = File(...)):
             "1. 'name': Full name from the header.\n"
             "2. 'atsScore': Integer (0-100).\n"
             "3. 'devType': A professional title (e.g. 'Full-Stack Engineer').\n"
-            "4. 'skills': An ARRAY of objects: [{{'name': 'Python', 'level': 95}}]. Only include top-tier skills.\n"
-            "5. 'skillDensity': An OBJECT for Radar Chart: {{'Backend': 90, 'Frontend': 70, 'DevOps': 50, 'Data': 40, 'Cloud': 60}}.\n"
-            "6. 'projectImpacts': An ARRAY of objects: [{{'name': 'Project X', 'score': 92}}].\n"
-            "7. 'criticalFlaws': An ARRAY of strings (Brutally honest critiques).\n"
-            "8. 'actionableFixes': An ARRAY of strings (Directives to improve the resume).\n\n"
+            "4. 'cgpa': The extracted CGPA or GPA (string or float value).\n"
+            "5. 'education': An ARRAY of objects: [{{'institution': '...', 'degree': '...', 'year': '...'}}]\n"
+            "6. 'skills': An ARRAY of objects: [{{'name': 'Python', 'level': 95}}]. Only include top-tier skills.\n"
+            "7. 'skillDensity': An OBJECT for Radar Chart: {{'Backend': 90, 'Frontend': 70, 'DevOps': 50, 'Data': 40, 'Cloud': 60}}.\n"
+            "8. 'projectImpacts': An ARRAY of objects: [{{'name': 'Project X', 'score': 92, 'description': '...'}}].\n"
             "9. 'certifications': An ARRAY of strings (Formal professional certifications).\n"
             "10. 'majorMilestones': An ARRAY of strings (Key career or project achievements).\n"
+            "11. 'criticalFlaws': An ARRAY of strings (Brutally honest critiques).\n"
+            "12. 'actionableFixes': An ARRAY of strings (Directives to improve the resume).\n\n"
             "Return ONLY the JSON object. Do not include prose.\n"
             "{format_instructions}"
         )
@@ -393,6 +427,15 @@ async def parse_resume(file: UploadFile = File(...)):
             "format_instructions": parser.get_format_instructions()
         })
         
+        # Persist to DB
+        if email:
+            db_user = db.query(DBUser).filter(DBUser.email == email).first()
+            if db_user:
+                db_user.resume_data = result
+                db.add(db_user)
+                db.commit()
+                db.refresh(db_user)
+            
         return result
 
     except Exception as e:
@@ -412,8 +455,19 @@ async def verify_certificate(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/me")
+async def get_me(email: str, db: Session = Depends(get_db)):
+    db_user = db.query(DBUser).filter(DBUser.email == email).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "resume": db_user.resume_data or {},
+        "linkedin": db_user.linkedin_data or {},
+        "github": db_user.github_data or {},
+        "legacy": db_user.profile_data or {}
+    }
+
 # --- Middleware & Mounting ---
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(router)
 
 if __name__ == "__main__":

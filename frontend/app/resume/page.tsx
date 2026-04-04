@@ -29,6 +29,7 @@ export default function ResumeAnalysis() {
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('email', localStorage.getItem('user_email') || '');
     try {
       const response = await fetch('http://localhost:8000/api/upload-resume', { method: 'POST', body: formData });
       const data = await response.json();
