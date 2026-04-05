@@ -144,6 +144,8 @@ function StudentCard({ student, idx }: { student: StudentResult; idx: number }) 
     router.push(`/portfolio?email=${student.student_email}`);
   };
 
+  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
